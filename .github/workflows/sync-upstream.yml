@@ -1,0 +1,207 @@
+# bike-method-phase: 1 — supervised until several upstream updates are reviewed safely.
+# three-ms-attribution: Adapted from The Three Ms of AI™ © 2026 Nate Herk.
+
+name: Prepare upstream update
+
+on:
+  schedule:
+    - cron: '17 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  prepare-update:
+    name: Prepare and validate upstream update
+    if: ${{ github.repository == 'samiordahi/pixel-agents' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Ordahi fork
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch official Pixel Agents
+        id: upstream
+        shell: bash
+        run: |
+          git remote add upstream https://github.com/pixel-agents-hq/pixel-agents.git
+          git remote set-url --push upstream DISABLED
+          git fetch --prune --tags upstream main
+
+          SHA=$(git rev-parse upstream/main)
+          SHORT_SHA=$(git rev-parse --short=8 upstream/main)
+          BRANCH="automation/upstream-$SHORT_SHA"
+          BEHIND=$(git rev-list --count HEAD..upstream/main)
+          AHEAD=$(git rev-list --count upstream/main..HEAD)
+
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "update=false" >> "$GITHUB_OUTPUT"
+            echo "Fork already contains upstream/main ($SHA)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "update=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Upstream update found"
+              echo "- Official commits to review: $BEHIND"
+              echo "- Ordahi-only commits preserved: $AHEAD"
+              echo "- Upstream head: \`$SHA\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check for an existing integration branch
+        if: steps.upstream.outputs.update == 'true'
+        id: existing
+        env:
+          BRANCH: ${{ steps.upstream.outputs.branch }}
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Integration branch \`$BRANCH\` already exists; this run will not overwrite it." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge upstream into a review branch
+        if: steps.upstream.outputs.update == 'true' && steps.existing.outputs.found == 'false'
+        id: merge
+        env:
+          BRANCH: ${{ steps.upstream.outputs.branch }}
+        shell: bash
+        run: |
+          git config user.name "ordahi-upstream-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git switch -c "$BRANCH"
+
+          if git merge --no-ff --no-edit upstream/main; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+            git push --set-upstream origin "$BRANCH"
+          else
+            {
+              echo "conflict=true"
+              echo "files<<EOF"
+              git diff --name-only --diff-filter=U
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+
+      - name: Report merge conflicts without changing main
+        if: steps.merge.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          CONFLICT_FILES: ${{ steps.merge.outputs.files }}
+        shell: bash
+        run: |
+          TITLE="[upstream-sync] Conflitos em ${UPSTREAM_SHA:0:8}"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$EXISTING" ]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "A atualização oficial não foi aplicada porque conflita com personalizações Ordahi.
+
+          **Upstream:** \`$UPSTREAM_SHA\`
+
+          **Arquivos em conflito:**
+          \`\`\`
+          $CONFLICT_FILES
+          \`\`\`
+
+          Resolva em uma branch de integração. Nada foi alterado em \`main\`."
+          fi
+          exit 1
+
+      - name: Setup Node
+        if: steps.merge.outputs.conflict == 'false'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        if: steps.merge.outputs.conflict == 'false'
+        run: npm ci
+
+      - name: Type check
+        if: steps.merge.outputs.conflict == 'false'
+        run: npm run check-types
+
+      - name: Unit tests
+        if: steps.merge.outputs.conflict == 'false'
+        run: npm test
+
+      - name: Production package
+        if: steps.merge.outputs.conflict == 'false'
+        run: npm run package
+
+      - name: Report failed validation
+        if: failure() && steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.upstream.outputs.branch }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          TITLE="[upstream-sync] Validação falhou em ${UPSTREAM_SHA:0:8}"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$EXISTING" ]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "A branch \`$BRANCH\` preserva a tentativa de integração, mas os testes ou o empacotamento falharam.
+
+          [Abrir execução e logs]($RUN_URL)
+
+          Nenhuma alteração foi aplicada em \`main\` e nenhuma versão foi publicada."
+          fi
+
+      - name: Open supervised update pull request
+        if: success() && steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.upstream.outputs.branch }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          BEHIND: ${{ steps.upstream.outputs.behind }}
+        shell: bash
+        run: |
+          PR=$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url // empty')
+          if [ -z "$PR" ]; then
+            PR=$(gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "chore: revisar atualização do Pixel Agents ${UPSTREAM_SHA:0:8}" \
+              --body "## Atualização oficial preparada
+
+          Esta PR incorpora **$BEHIND commit(s)** de \`pixel-agents-hq/pixel-agents:main\`.
+
+          A automação já executou typecheck, testes unitários e empacotamento. A CI normal da PR continua sendo a validação completa.
+
+          ### Revisão Ordahi obrigatória
+
+          - [ ] Um personagem por identidade, sem duplicações
+          - [ ] Cody/Claude, Codex, Tars/Hermes, Bella e Stella mantêm suas identidades
+          - [ ] Ponte de providers externos e modo \`--external-only\` continuam funcionando
+          - [ ] Layout e dados persistidos não são apagados nem reescritos
+          - [ ] Idle não gera alerta e personagens descem da cadeira antes de parar
+          - [ ] Sala abre embutida no Painel AIOS
+
+          **Não há publicação automática.** O merge desta PR apenas aprova a base para a próxima versão Ordahi.")
+          fi
+          echo "Prepared review: $PR" >> "$GITHUB_STEP_SUMMARY"
