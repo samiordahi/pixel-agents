@@ -70,6 +70,7 @@ describe('parseArgs', () => {
     const args = parseArgs([]);
     expect(args.port).toBeUndefined();
     expect(args.host).toBe('127.0.0.1');
+    expect(args.externalOnly).toBe(false);
   });
 
   // 2. Valid --port is accepted
@@ -118,6 +119,12 @@ describe('parseArgs', () => {
   // 10. --host is parsed independently of --port
   it('parses --host', () => {
     expect(parseArgs(['--host', '0.0.0.0']).host).toBe('0.0.0.0');
+  });
+
+  it('parses --external-only independently', () => {
+    const args = parseArgs(['--external-only', '--host', '127.0.0.1']);
+    expect(args.externalOnly).toBe(true);
+    expect(args.host).toBe('127.0.0.1');
   });
 });
 

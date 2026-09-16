@@ -55,6 +55,7 @@ export type ClientMessage =
   | HooksConsentResponse
   | SetHooksInfoShown
   | SetWatchAllSessions
+  | SetSeatSubagents
   | ExportLayout
   | ImportLayout
   | OpenSessionsFolder
@@ -75,6 +76,8 @@ export interface AgentCreated {
   id: number;
   folderName?: string;
   isExternal?: boolean;
+  agentName?: string;
+  providerId?: string;
   palette?: number;
   hueShift?: number;
 }
@@ -95,6 +98,8 @@ export interface ExistingAgents {
   agentMeta: Record<string, AgentSeatMeta>;
   folderNames: Record<string, string>;
   externalAgents: Record<string, boolean>;
+  agentNames: Record<string, string>;
+  providerIds: Record<string, string>;
 }
 
 export interface AgentSeatMeta {
@@ -110,7 +115,7 @@ export interface AgentStatus {
   awaitingInput?: boolean;
 }
 
-export type AgentActivityStatus = 'active' | 'waiting';
+export type AgentActivityStatus = 'active' | 'waiting' | 'idle';
 
 export interface AgentToolStart {
   type: 'agentToolStart';
@@ -269,6 +274,7 @@ export interface SettingsLoaded {
   lastSeenVersion: string;
   extensionVersion: string;
   watchAllSessions: boolean;
+  seatSubagents: boolean;
   alwaysShowLabels: boolean;
   ghostHeadlessAgents: boolean;
   hooksEnabled: boolean;
@@ -391,6 +397,11 @@ export interface SetHooksInfoShown {
 
 export interface SetWatchAllSessions {
   type: 'setWatchAllSessions';
+  enabled: boolean;
+}
+
+export interface SetSeatSubagents {
+  type: 'setSeatSubagents';
   enabled: boolean;
 }
 

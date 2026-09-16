@@ -136,6 +136,7 @@ components:
         - $ref: '#/components/schemas/HooksConsentResponse'
         - $ref: '#/components/schemas/SetHooksInfoShown'
         - $ref: '#/components/schemas/SetWatchAllSessions'
+        - $ref: '#/components/schemas/SetSeatSubagents'
         - $ref: '#/components/schemas/ExportLayout'
         - $ref: '#/components/schemas/ImportLayout'
         - $ref: '#/components/schemas/OpenSessionsFolder'
@@ -184,6 +185,12 @@ components:
           type: string
         isExternal:
           type: boolean
+        agentName:
+          type: string
+          description: Stable display name supplied by an external provider.
+        providerId:
+          type: string
+          description: Provider that owns the agent lifecycle.
         palette:
           type: integer
           description: Server-assigned character palette index.
@@ -219,7 +226,7 @@ components:
         changes that the client missed. Includes seat/palette assignments.
       type: object
       additionalProperties: false
-      required: [type, agents, agentMeta, folderNames, externalAgents]
+      required: [type, agents, agentMeta, folderNames, externalAgents, agentNames, providerIds]
       properties:
         type:
           const: existingAgents
@@ -242,9 +249,19 @@ components:
           description: Map of agent ID (string) to external flag.
           additionalProperties:
             type: boolean
+        agentNames:
+          type: object
+          description: Map of agent ID (string) to stable display name.
+          additionalProperties:
+            type: string
+        providerIds:
+          type: object
+          description: Map of agent ID (string) to provider identifier.
+          additionalProperties:
+            type: string
 
     AgentStatus:
-      description: Active vs waiting state for an agent (drives character animation).
+      description: Active, waiting, or silent idle state for an agent.
       type: object
       additionalProperties: false
       required: [type, id, status]
@@ -265,7 +282,7 @@ components:
     AgentActivityStatus:
       description: Activity state of an agent.
       type: string
-      enum: [active, waiting]
+      enum: [active, waiting, idle]
 
     AgentToolStart:
       description: Agent began executing a tool.
@@ -638,6 +655,7 @@ components:
         - lastSeenVersion
         - extensionVersion
         - watchAllSessions
+        - seatSubagents
         - alwaysShowLabels
         - ghostHeadlessAgents
         - hooksEnabled
@@ -654,6 +672,8 @@ components:
         extensionVersion:
           type: string
         watchAllSessions:
+          type: boolean
+        seatSubagents:
           type: boolean
         alwaysShowLabels:
           type: boolean
@@ -973,6 +993,20 @@ components:
       properties:
         type:
           const: setWatchAllSessions
+        enabled:
+          type: boolean
+
+    SetSeatSubagents:
+      description: >-
+        Toggle seating unnamed sub-agents as teammates. When on, a background
+        spawn whose sidecar carries no `name` is named from its task description
+        and given its own seated character instead of the transient Subtask.
+      type: object
+      additionalProperties: false
+      required: [type, enabled]
+      properties:
+        type:
+          const: setSeatSubagents
         enabled:
           type: boolean
 

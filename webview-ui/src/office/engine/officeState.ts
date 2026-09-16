@@ -412,7 +412,7 @@ export class OfficeState {
    * repeat in balanced rounds with a random hue shift (≥45°).
    */
   private pickDiversePalette(): { palette: number; hueShift: number } {
-    // Count how many non-sub-agents use each base palette (0-5)
+    // Count how many non-sub-agents use each loaded base palette.
     const paletteCount = getLoadedCharacterCount();
     const counts = new Array(paletteCount).fill(0) as number[];
     for (const ch of this.characters.values()) {
@@ -900,6 +900,15 @@ export class OfficeState {
       ch.bubbleType = 'waiting';
       ch.waitingAwaitingInput = awaitingInput;
       ch.bubbleTimer = WAITING_BUBBLE_DURATION_SEC;
+    }
+  }
+
+  clearWaitingBubble(id: number): void {
+    const ch = this.characters.get(id);
+    if (ch?.bubbleType === 'waiting') {
+      ch.bubbleType = null;
+      ch.waitingAwaitingInput = false;
+      ch.bubbleTimer = 0;
     }
   }
 

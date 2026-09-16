@@ -10,6 +10,9 @@ export interface AdapterSettings {
   alwaysShowLabels: boolean;
   ghostHeadlessAgents: boolean;
   watchAllSessions: boolean;
+  /** Seat unnamed sub-agents as teammates, naming them from their task
+   *  description. Off = upstream behaviour (name is the sole classifier). */
+  seatSubagents: boolean;
   hooksInfoShown: boolean;
   showAreas: boolean;
   areaMappings: Record<string, string[]>;
@@ -25,6 +28,7 @@ export const ADAPTER_SETTING_KEYS = [
   'alwaysShowLabels',
   'ghostHeadlessAgents',
   'watchAllSessions',
+  'seatSubagents',
   'hooksInfoShown',
   'showAreas',
   'areaMappings',
@@ -41,10 +45,45 @@ export type ConfigNamespace = 'vscode' | 'standalone';
  *  unanswered, the ask is still open. */
 export type HooksConsentState = 'granted' | 'declined';
 
+/**
+ * Which of an agent's identity fields a character rule is matched against.
+ *
+ * `role` é derivado, não é um nome que alguém escreveu: vale `lead` para a
+ * sessão principal e `teammate` para subagente. É o único jeito de fixar a
+ * conversa principal, que por construção não tem `agentName`.
+ */
+export type CharacterRuleField =
+  'any' | 'agentName' | 'teamName' | 'folderName' | 'projectDir' | 'role';
+
+/**
+ * FORK-LOCAL: pin a character to an agent by name instead of drawing one.
+ *
+ * Upstream assigns `palette` by diversity — the office fills with visibly
+ * different people, which is the right default when the characters are
+ * anonymous. It stops being right once the characters ARE somebody: an agent
+ * that is always the same person has to look like that person, or the office
+ * says nothing about who is working.
+ *
+ * `match` is a case-insensitive substring, not a regex — the rules live in a
+ * hand-edited JSON file, and a bad regex there would throw inside the assigner
+ * on every agent that spawns. Substring can't fail.
+ */
+export interface CharacterRule {
+  /** Case-insensitive substring to look for. */
+  match: string;
+  /** Index into the loaded character sheets (bundled first, then external). */
+  palette: number;
+  /** Which field to look in. Default `any` = the first of the four that hits. */
+  field?: CharacterRuleField;
+}
+
 export interface PixelAgentsConfig {
   vscode: AdapterSettings;
   standalone: AdapterSettings;
   externalAssetDirectories: string[];
+  /** Name → character pins. Ordered: the first match wins, so a specific rule
+   *  goes above a broad one. Empty = pure upstream behaviour. */
+  characterRules: CharacterRule[];
   /** Per-provider consent to modify that provider's settings file (Claude:
    *  ~/.claude/settings.json). Shared across surfaces — consent is per-human
    *  per-provider, not per-adapter. A provider absent from the map has never
@@ -61,6 +100,7 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   alwaysShowLabels: false,
   ghostHeadlessAgents: false,
   watchAllSessions: false,
+  seatSubagents: false,
   hooksInfoShown: false,
   showAreas: false,
   areaMappings: {},
@@ -77,6 +117,37 @@ function parseHooksConsent(raw: unknown): Record<string, HooksConsentState> {
   const out: Record<string, HooksConsentState> = {};
   for (const [providerId, state] of Object.entries(raw as Record<string, unknown>)) {
     if (state === 'granted' || state === 'declined') out[providerId] = state;
+  }
+  return out;
+}
+
+/**
+ * Coerce a loose array into character rules, dropping anything malformed.
+ *
+ * Deliberately silent about bad entries, like the maps above: this file is
+ * hand-edited by design, and a typo in one rule must not cost the user the
+ * other rules — much less crash the assigner that runs on every spawn.
+ */
+export function parseCharacterRules(raw: unknown): CharacterRule[] {
+  if (!Array.isArray(raw)) return [];
+  const campos: CharacterRuleField[] = [
+    'any',
+    'agentName',
+    'teamName',
+    'folderName',
+    'projectDir',
+    'role',
+  ];
+  const out: CharacterRule[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const r = item as Partial<CharacterRule>;
+    if (typeof r.match !== 'string' || r.match.trim() === '') continue;
+    if (typeof r.palette !== 'number' || !Number.isInteger(r.palette) || r.palette < 0) continue;
+    const field = campos.includes(r.field as CharacterRuleField)
+      ? (r.field as CharacterRuleField)
+      : 'any';
+    out.push({ match: r.match, palette: r.palette, field });
   }
   return out;
 }
@@ -138,6 +209,10 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
       typeof obj.watchAllSessions === 'boolean'
         ? obj.watchAllSessions
         : DEFAULT_ADAPTER_SETTINGS.watchAllSessions,
+    seatSubagents:
+      typeof obj.seatSubagents === 'boolean'
+        ? obj.seatSubagents
+        : DEFAULT_ADAPTER_SETTINGS.seatSubagents,
     hooksInfoShown:
       typeof obj.hooksInfoShown === 'boolean'
         ? obj.hooksInfoShown
@@ -156,6 +231,7 @@ export function readConfig(): PixelAgentsConfig {
         vscode: { ...DEFAULT_ADAPTER_SETTINGS },
         standalone: { ...DEFAULT_ADAPTER_SETTINGS },
         externalAssetDirectories: [],
+        characterRules: [],
         hooksConsent: {},
         hooksEnabled: {},
       };
@@ -168,6 +244,7 @@ export function readConfig(): PixelAgentsConfig {
       externalAssetDirectories: Array.isArray(parsed.externalAssetDirectories)
         ? parsed.externalAssetDirectories.filter((d): d is string => typeof d === 'string')
         : [],
+      characterRules: parseCharacterRules(parsed.characterRules),
       hooksConsent: parseHooksConsent(parsed.hooksConsent),
       hooksEnabled: parseHooksEnabled(parsed.hooksEnabled),
     };
@@ -177,6 +254,7 @@ export function readConfig(): PixelAgentsConfig {
       vscode: { ...DEFAULT_ADAPTER_SETTINGS },
       standalone: { ...DEFAULT_ADAPTER_SETTINGS },
       externalAssetDirectories: [],
+      characterRules: [],
       hooksConsent: {},
       hooksEnabled: {},
     };

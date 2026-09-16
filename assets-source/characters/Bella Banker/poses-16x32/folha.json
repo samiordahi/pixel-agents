@@ -1,0 +1,39 @@
+{
+  "_source": "Approved PixelLab Bella rotations in assets/characters/Bella Banker",
+  "_order": [
+    "andar-contato-A",
+    "andar-passada",
+    "andar-contato-B",
+    "digitando-1",
+    "digitando-2",
+    "lendo-1",
+    "lendo-2"
+  ],
+  "baixo": [
+    "baixo-andar-contato-A.png",
+    "baixo-andar-passada.png",
+    "baixo-andar-contato-B.png",
+    "baixo-digitando-1.png",
+    "baixo-digitando-2.png",
+    "baixo-lendo-1.png",
+    "baixo-lendo-2.png"
+  ],
+  "cima": [
+    "cima-andar-contato-A.png",
+    "cima-andar-passada.png",
+    "cima-andar-contato-B.png",
+    "cima-digitando-1.png",
+    "cima-digitando-2.png",
+    "cima-lendo-1.png",
+    "cima-lendo-2.png"
+  ],
+  "direita": [
+    "direita-andar-contato-A.png",
+    "direita-andar-passada.png",
+    "direita-andar-contato-B.png",
+    "direita-digitando-1.png",
+    "direita-digitando-2.png",
+    "direita-lendo-1.png",
+    "direita-lendo-2.png"
+  ]
+}

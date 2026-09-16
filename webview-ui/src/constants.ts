@@ -57,24 +57,24 @@ export const BUBBLE_VERTICAL_OFFSET_PX = 24;
 export const FALLBACK_FLOOR_COLOR = '#808080';
 
 // ── Rendering - Overlay Colors (canvas, not CSS) ─────────────
-export const SEAT_OWN_COLOR = 'rgba(0, 127, 212, 0.35)';
-export const SEAT_AVAILABLE_COLOR = 'rgba(0, 200, 80, 0.35)';
-export const SEAT_BUSY_COLOR = 'rgba(220, 50, 50, 0.35)';
+export const SEAT_OWN_COLOR = 'rgba(150, 200, 204, 0.35)';
+export const SEAT_AVAILABLE_COLOR = 'rgba(138, 180, 104, 0.35)';
+export const SEAT_BUSY_COLOR = 'rgba(215, 52, 11, 0.35)';
 export const GRID_LINE_COLOR = 'rgba(255,255,255,0.12)';
 export const VOID_TILE_OUTLINE_COLOR = 'rgba(255,255,255,0.08)';
 export const VOID_TILE_DASH_PATTERN: [number, number] = [2, 2];
-export const GHOST_BORDER_HOVER_FILL = 'rgba(60, 130, 220, 0.25)';
-export const GHOST_BORDER_HOVER_STROKE = 'rgba(60, 130, 220, 0.5)';
+export const GHOST_BORDER_HOVER_FILL = 'rgba(68, 132, 138, 0.25)';
+export const GHOST_BORDER_HOVER_STROKE = 'rgba(68, 132, 138, 0.5)';
 export const GHOST_BORDER_STROKE = 'rgba(255, 255, 255, 0.06)';
 export const GHOST_VALID_TINT = '#00ff00';
 export const GHOST_INVALID_TINT = '#ff0000';
-export const SELECTION_HIGHLIGHT_COLOR = '#007fd4';
-export const DELETE_BUTTON_BG = 'rgba(200, 50, 50, 0.85)';
-export const ROTATE_BUTTON_BG = 'rgba(50, 120, 200, 0.85)';
+export const SELECTION_HIGHLIGHT_COLOR = '#e85a30';
+export const DELETE_BUTTON_BG = 'rgba(182, 42, 9, 0.85)';
+export const ROTATE_BUTTON_BG = 'rgba(68, 132, 138, 0.85)';
 export const BUTTON_ICON_COLOR = '#fff';
 export const CANVAS_FALLBACK_TILE_COLOR = '#444';
 export const CANVAS_ERROR_TILE_COLOR = '#FF00FF';
-export const WALL_COLOR = '#3A3A5C';
+export const WALL_COLOR = '#3A352A';
 
 // ── Camera ───────────────────────────────────────────────────
 export const CAMERA_FOLLOW_LERP = 0.1;
@@ -118,16 +118,23 @@ export const CARPET_DEFAULT_ACCENT_COLOR: ColorValue = {
 export const KEY_CARPET_PICK = 'p';
 
 // ── Areas (named, colored workspace-folder zones) ────────────
-/** Color palette assigned to new Areas in rotation (cycles when more areas exist). */
+/** Color palette assigned to new Areas in rotation (cycles when more areas exist).
+ *
+ *  FORK-LOCAL: as oito saem das cinco famílias da paleta Tech-Organic
+ *  (terracota · areia · teal · âmbar · musgo), não do arco-íris do upstream.
+ *  Aqui a exigência é categórica — as Areas precisam se distinguir UMA DA
+ *  OUTRA, não carregar significado — então a ordem alterna família a cada
+ *  passo em vez de percorrer uma rampa: duas Areas criadas em seguida caem em
+ *  famílias diferentes, que é quando a distinção importa. */
 export const AREA_DEFAULT_COLORS: readonly string[] = [
-  '#ff6b6b',
-  '#feca57',
-  '#48dbfb',
-  '#1dd1a1',
-  '#5f27cd',
-  '#ff9ff3',
-  '#54a0ff',
-  '#ffa502',
+  '#e85a30',
+  '#96c8cc',
+  '#efac44',
+  '#8ab468',
+  '#f8b4a0',
+  '#44848a',
+  '#d4d18a',
+  '#607b48',
 ] as const;
 /** Translucent overlay alpha for area tile fills. */
 export const AREA_OVERLAY_ALPHA = 0.25;
@@ -198,8 +205,63 @@ export const WAITING_BUBBLE_DURATION_SEC = 2.0;
 export const DISMISS_BUBBLE_FAST_FADE_SEC = 0.3;
 export const INACTIVE_SEAT_TIMER_MIN_SEC = 3.0;
 export const INACTIVE_SEAT_TIMER_RANGE_SEC = 2.0;
-/** Default/fallback palette count (bundled characters). Actual count comes from getLoadedCharacterCount(). */
-export const PALETTE_COUNT = 6;
+/** Default/fallback count. Actual count comes from the dynamically discovered sheets. */
+export const PALETTE_COUNT = 7;
+// ── Character Studio ─────────────────────────────────────────
+export const CHARACTER_STUDIO_SKIN_COLORS = [
+  '#F2C7A5',
+  '#DFA077',
+  '#C98762',
+  '#986045',
+  '#653F32',
+  '#3E2925',
+] as const;
+export const CHARACTER_STUDIO_HAIR_COLORS = [
+  '#231B18',
+  '#4A2D22',
+  '#7B4B2A',
+  '#C28B45',
+  '#D6C6A6',
+  '#6A354F',
+] as const;
+export const CHARACTER_STUDIO_OUTFIT_COLORS = [
+  '#344557',
+  '#2F5B55',
+  '#623D3A',
+  '#4C446D',
+  '#6B5A35',
+  '#38393E',
+] as const;
+export const CHARACTER_STUDIO_ACCENT_COLORS = [
+  '#D76A2D',
+  '#E9A23B',
+  '#78A167',
+  '#74A8AD',
+  '#C85B72',
+  '#E7D8B1',
+] as const;
+export const CHARACTER_STUDIO_HEAD_OUTLINE = '#1B1715';
+export const CHARACTER_STUDIO_BODY_OUTLINE = '#17191B';
+export const CHARACTER_STUDIO_GLASSES_COLOR = '#25262A';
+export const CHARACTER_STUDIO_HARDHAT_EDGE = '#6B3517';
+export const CHARACTER_STUDIO_EYE_COLORS = [
+  '#231B18',
+  '#4A2D22',
+  '#2F5B55',
+  '#435A7A',
+  '#6A354F',
+] as const;
+export const CHARACTER_STUDIO_BOTTOM_COLORS = [
+  '#2E3440',
+  '#344557',
+  '#2F5B55',
+  '#623D3A',
+  '#6B5A35',
+] as const;
+export const CHARACTER_STUDIO_SHOE_COLORS = ['#241D19', '#38393E', '#6B4A35', '#E7D8B1'] as const;
+export const CHARACTER_STUDIO_LAPTOP_COLOR = '#59616A';
+export const CHARACTER_STUDIO_PAPER_COLOR = '#E8DFC9';
+export const CHARACTER_STUDIO_COFFEE_STEAM_COLOR = '#8D735E';
 export const AUTO_ON_FACING_DEPTH = 3;
 export const AUTO_ON_SIDE_DEPTH = 2;
 export const CHARACTER_HIT_HALF_WIDTH = 8;
@@ -265,15 +327,15 @@ export const CONTEXT_DANGER_THRESHOLD = 0.8;
 export const CONTEXT_CRITICAL_THRESHOLD = 0.95;
 export const CONTEXT_GAUGE_WIDTH_PX = 40;
 export const CONTEXT_GAUGE_HEIGHT_PX = 4;
-export const CONTEXT_GAUGE_COLOR_OK = '#44cc44';
-export const CONTEXT_GAUGE_COLOR_WARN = '#ffcc00';
-export const CONTEXT_GAUGE_COLOR_DANGER = '#ff8800';
-export const CONTEXT_GAUGE_COLOR_CRITICAL = '#ff2222';
-export const CONTEXT_GAUGE_BG = '#222';
+export const CONTEXT_GAUGE_COLOR_OK = '#8ab468';
+export const CONTEXT_GAUGE_COLOR_WARN = '#efac44';
+export const CONTEXT_GAUGE_COLOR_DANGER = '#f28c6e';
+export const CONTEXT_GAUGE_COLOR_CRITICAL = '#d7340b';
+export const CONTEXT_GAUGE_BG = '#1c1a14';
 
 // ── Agent Teams ─────────────────────────────────────────────
-export const TEAM_LEAD_COLOR = '#ffd700';
-export const TEAM_ROLE_COLOR = '#66aaff';
+export const TEAM_LEAD_COLOR = '#efac44';
+export const TEAM_ROLE_COLOR = '#96c8cc';
 
 // ── Pets ────────────────────────────────────────────────────────
 /** Walking speed in world pixels per second (matches character walk speed visually but slower). */

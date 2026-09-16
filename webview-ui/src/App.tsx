@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
+import { CharacterStudioModal } from './components/CharacterStudioModal.js';
 import { ConnectionIndicator } from './components/ConnectionIndicator.js';
 import { DebugView } from './components/DebugView.js';
 import { EditActionBar } from './components/EditActionBar.js';
@@ -83,6 +84,8 @@ function App() {
     extensionVersion,
     watchAllSessions,
     setWatchAllSessions,
+    seatSubagents,
+    setSeatSubagents,
     alwaysShowLabels,
     ghostHeadlessAgents,
     setGhostHeadlessAgents,
@@ -104,6 +107,7 @@ function App() {
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCharacterStudioOpen, setIsCharacterStudioOpen] = useState(false);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -551,6 +555,12 @@ function App() {
           setWatchAllSessions(newVal);
           transport.send({ type: 'setWatchAllSessions', enabled: newVal });
         }}
+        seatSubagents={seatSubagents}
+        onToggleSeatSubagents={() => {
+          const newVal = !seatSubagents;
+          setSeatSubagents(newVal);
+          transport.send({ type: 'setSeatSubagents', enabled: newVal });
+        }}
         hooksInstalled={claudeHooksInstalled}
         onToggleHooksEnabled={() => {
           // Toggle the DISPLAYED state (actual install), not the preference: when the two disagree — preference on,
@@ -573,6 +583,12 @@ function App() {
         showAreasAvailable={areasAvailable}
         onExportLayout={handleExportLayout}
         onImportLayout={handleImportLayout}
+        onOpenCharacterStudio={() => setIsCharacterStudioOpen(true)}
+      />
+
+      <CharacterStudioModal
+        isOpen={isCharacterStudioOpen}
+        onClose={() => setIsCharacterStudioOpen(false)}
       />
 
       {showMigrationNotice && (

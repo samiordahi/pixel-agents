@@ -37,6 +37,7 @@ export interface CliArgs {
    *  can run at once without a collision. --port picks a fixed one. */
   port?: number;
   host: string;
+  externalOnly: boolean;
 }
 
 /** Thrown by parseArgs on an invalid --port. Kept separate from process.exit so
@@ -45,7 +46,7 @@ export interface CliArgs {
 export class CliArgsError extends Error {}
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { host: '127.0.0.1' };
+  const args: CliArgs = { host: '127.0.0.1', externalOnly: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--port' || argv[i] === '-p') {
       const raw = argv[i + 1];
@@ -65,12 +66,15 @@ export function parseArgs(argv: string[]): CliArgs {
     } else if (argv[i] === '--host' && argv[i + 1]) {
       args.host = argv[i + 1];
       i++;
+    } else if (argv[i] === '--external-only') {
+      args.externalOnly = true;
     } else if (argv[i] === '--help') {
       console.log(`Usage: pixel-agents [options]
 
 Options:
   --port, -p <number>   Port to listen on (default: OS-assigned ephemeral port)
   --host <string>       Host to bind to (default: 127.0.0.1)
+  --external-only       Show only identities supplied by external providers
   --help                Show this help message`);
       process.exit(0);
     }
@@ -144,9 +148,11 @@ async function main(): Promise<void> {
   try {
     // Create runtime first (before server.start, so we can pass it in)
     const runtime = new AgentRuntime(store, claudeProvider);
+    runtime.nativeSessionTracking.current = !args.externalOnly;
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
     server.onHookEvent((providerId, event) => {
+      if (args.externalOnly) return;
       runtime.handleHookEvent(providerId, event);
     });
 
@@ -156,6 +162,7 @@ async function main(): Promise<void> {
     let currentConfig: { port: number; token: string } | null = null;
     const onSetHooksEnabled = async (providerId: string, enabled: boolean): Promise<void> => {
       if (!currentConfig) return;
+      if (args.externalOnly) return;
       const provider = hookProviderById(providerId);
       if (!provider) return; // unknown id: nothing to install into
       if (enabled) {
@@ -243,12 +250,17 @@ async function main(): Promise<void> {
     // Sync runtime refs with persisted settings BEFORE first scan tick. The
     // runtime's single hooksEnabled ref follows the Claude provider until the
     // scanners grow per-provider awareness alongside the Settings UI.
-    runtime.hooksEnabled.current = getHooksEnabled(claudeProvider.id);
-    runtime.watchAllSessions.current = adapter.getSetting('pixel-agents.watchAllSessions', false);
+    runtime.hooksEnabled.current = args.externalOnly ? false : getHooksEnabled(claudeProvider.id);
+    runtime.watchAllSessions.current = args.externalOnly
+      ? false
+      : adapter.getSetting('pixel-agents.watchAllSessions', false);
+    runtime.seatSubagents.current = adapter.getSetting('pixel-agents.seatSubagents', false);
 
     // Install hooks on startup if the persisted setting says so — gated on the
     // one-time consent to modify ~/.claude/settings.json.
-    if (runtime.hooksEnabled.current) {
+    if (args.externalOnly) {
+      console.log('[Pixel Agents] External-only mode — native session discovery is disabled.');
+    } else if (runtime.hooksEnabled.current) {
       let consent = getHooksConsent(claudeProvider.id) === 'granted';
       if (!consent && (await claudeProvider.areHooksInstalled())) {
         // Our hooks are already installed and already firing — a pre-consent
@@ -283,14 +295,16 @@ async function main(): Promise<void> {
     }
 
     // Start scanning for external sessions (Claude running in user's terminal)
-    const cwd = process.cwd();
-    const dirs = claudeProvider.getSessionDirs?.(cwd);
-    if (dirs && dirs[0]) {
-      const projectDir = dirs[0];
-      console.log(`[Pixel Agents] Scanning project dir: ${projectDir}`);
-      runtime.startProjectScan(projectDir);
-      runtime.startExternalScanning(projectDir);
-      runtime.startStaleCheck();
+    if (!args.externalOnly) {
+      const cwd = process.cwd();
+      const dirs = claudeProvider.getSessionDirs?.(cwd);
+      if (dirs && dirs[0]) {
+        const projectDir = dirs[0];
+        console.log(`[Pixel Agents] Scanning project dir: ${projectDir}`);
+        runtime.startProjectScan(projectDir);
+        runtime.startExternalScanning(projectDir);
+        runtime.startStaleCheck();
+      }
     }
 
     // The URL the operator opens has to be REACHABLE (a wildcard bind address

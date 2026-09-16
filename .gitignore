@@ -3,6 +3,8 @@ out
 dist
 node_modules
 *.tsbuildinfo
+__pycache__/
+*.pyc
 
 # Logs
 /logs

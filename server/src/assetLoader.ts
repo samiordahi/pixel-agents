@@ -480,50 +480,11 @@ export function mergeCharacterSprites(
   return { characters: [...a.characters, ...b.characters] };
 }
 
-/**
- * Load pre-colored character sprites from assets/characters/ (6 PNGs, each 112×96).
- * Each PNG has 3 direction rows (down, up, right) × 7 frames (16×32 each).
- */
-export async function loadCharacterSprites(
+async function scanExternalCharacterSprites(
   assetsRoot: string,
 ): Promise<LoadedCharacterSprites | null> {
   try {
     const charDir = path.join(assetsRoot, 'assets', 'characters');
-    const characters: CharacterDirectionSprites[] = [];
-
-    for (let ci = 0; ci < CHAR_COUNT; ci++) {
-      const filePath = path.join(charDir, `char_${ci}.png`);
-      if (!fs.existsSync(filePath)) {
-        console.log(`[AssetLoader] No character sprite found at: ${filePath}`);
-        return null;
-      }
-
-      const pngBuffer = fs.readFileSync(filePath);
-      characters.push(decodeCharacterPng(pngBuffer));
-    }
-
-    console.log(
-      `[AssetLoader] ✅ Loaded ${characters.length} character sprites (${CHAR_FRAMES_PER_ROW} frames × 3 directions each)`,
-    );
-    return { characters };
-  } catch (err) {
-    console.error(
-      `[AssetLoader] ❌ Error loading character sprites: ${err instanceof Error ? err.message : err}`,
-    );
-    return null;
-  }
-}
-
-/**
- * Load character sprites from an external asset directory.
- * Scans assets/characters/ for char_N.png files (any N, sorted numerically).
- * Returns null if no characters found.
- */
-export async function loadExternalCharacterSprites(
-  externalRoot: string,
-): Promise<LoadedCharacterSprites | null> {
-  try {
-    const charDir = path.join(externalRoot, 'assets', 'characters');
     if (!fs.existsSync(charDir)) {
       return null;
     }
@@ -567,7 +528,8 @@ export async function loadExternalCharacterSprites(
     }
 
     console.log(
-      `[AssetLoader] ✅ Loaded ${characters.length} external character sprites from ${externalRoot}`,
+      `[AssetLoader] ✅ Loaded ${characters.length} external character sprites ` +
+        `(${CHAR_FRAMES_PER_ROW} frames × 3 directions each) from ${assetsRoot}`,
     );
     return { characters };
   } catch (err) {
@@ -576,6 +538,41 @@ export async function loadExternalCharacterSprites(
     );
     return null;
   }
+}
+
+/** Load the strict bundled char_0.png…char_N.png sequence. */
+export async function loadCharacterSprites(
+  assetsRoot: string,
+): Promise<LoadedCharacterSprites | null> {
+  try {
+    const charDir = path.join(assetsRoot, 'assets', 'characters');
+    const characters: CharacterDirectionSprites[] = [];
+    for (let index = 0; index < CHAR_COUNT; index++) {
+      const filePath = path.join(charDir, `char_${index}.png`);
+      if (!fs.existsSync(filePath)) {
+        console.log(`[AssetLoader] No character sprite found at: ${filePath}`);
+        return null;
+      }
+      characters.push(decodeCharacterPng(fs.readFileSync(filePath)));
+    }
+    console.log(
+      `[AssetLoader] ✅ Loaded ${characters.length} bundled character sprites ` +
+        `(${CHAR_FRAMES_PER_ROW} frames × 3 directions each) from ${assetsRoot}`,
+    );
+    return { characters };
+  } catch (err) {
+    console.error(
+      `[AssetLoader] ❌ Error loading bundled character sprites: ${err instanceof Error ? err.message : err}`,
+    );
+    return null;
+  }
+}
+
+/** Load all external char_N.png sheets in numeric order. */
+export async function loadExternalCharacterSprites(
+  externalRoot: string,
+): Promise<LoadedCharacterSprites | null> {
+  return scanExternalCharacterSprites(externalRoot);
 }
 
 /**

@@ -602,6 +602,31 @@ export function setSubagentWatch(watch: SubagentWatch | null): void {
   subagentWatch = watch;
 }
 
+/** Fork-local: when on, an unnamed background spawn is named from its sidecar
+ *  `description` and seated as a Teammate instead of staying a Sub-agent.
+ *  Upstream treats the absent `name` as the sole classifier; Claude Code does
+ *  not write one for ordinary Agent spawns, so every sub-agent collapses into
+ *  the same anonymous "Subtask". Off by default — seating costs a chair. */
+let seatSubagentsRef: { current: boolean } = { current: false };
+
+/** Register the mutable Seat Sub-agents preference (owned by AgentRuntime). */
+export function setSeatSubagentsRef(ref: { current: boolean }): void {
+  seatSubagentsRef = ref;
+}
+
+/** The name to seat an unnamed spawn under: its task description, else its
+ *  agent type. Returns undefined when neither is usable, leaving it a Sub-agent
+ *  — a nameless character would be a worse lie than the Subtask blob. */
+function derivedSubagentName(entry: {
+  description?: string;
+  teammateName?: string;
+}): string | undefined {
+  const description = entry.description?.trim();
+  if (description) return description;
+  const agentType = entry.teammateName?.trim();
+  return agentType ? agentType : undefined;
+}
+
 /** Register the active HookProvider for non-team capabilities (session roots, etc.). */
 export function setHookProvider(provider: HookProvider): void {
   hookProvider = provider;
@@ -861,7 +886,15 @@ export function scanForBackgroundAgentFiles(
     // work whatever the sidecar says: watch them, never seat them.
     const isForeground = !lead.backgroundAgentToolIds.has(entry.toolUseId);
 
-    if (!entry.name || isForeground) {
+    // Fork-local: with Seat Sub-agents on, an unnamed background spawn borrows
+    // its description as a name and takes the Teammate path below. Foreground
+    // spawns are within-turn work whatever the sidecar says — never seated, so
+    // the derivation is not even attempted for them.
+    const seatedName =
+      entry.name ??
+      (seatSubagentsRef.current && !isForeground ? derivedSubagentName(entry) : undefined);
+
+    if (!seatedName || isForeground) {
       // Unnamed spawn = Sub-agent: keep the Subtask character, watch the
       // transcript in the shadow store for live activity. No agentCreated, no
       // subagentClear, no persistence.
@@ -901,7 +934,7 @@ export function scanForBackgroundAgentFiles(
       contextTokens: 0,
       maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
       // Teammate-like linkage, but NO teamName: config polling must not touch these.
-      agentName: entry.name,
+      agentName: seatedName,
       leadAgentId: leadId,
       spawnToolUseId: entry.toolUseId,
     };

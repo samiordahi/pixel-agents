@@ -9,6 +9,7 @@ import { AgentStateStore } from '../src/agentStateStore.js';
 import {
   scanForBackgroundAgentFiles,
   setHookProvider as setFileWatcherHookProvider,
+  setSeatSubagentsRef,
   setSubagentWatch,
   setTeamProvider,
 } from '../src/fileWatcher.js';
@@ -229,6 +230,8 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     setBackgroundAgentCompletedCallback(() => {});
     watch.dispose();
     setSubagentWatch(null);
+    // Module-level state: leave the fork-local preference off for the next test.
+    setSeatSubagentsRef({ current: false });
     for (const t of pollingTimers.values()) clearInterval(t);
     pollingTimers.clear();
     vi.useRealTimers();
@@ -489,6 +492,62 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     expect(
       messages.some((m) => m.type === 'subagentClear' && m.parentToolId === SPAWN_TOOL_ID),
     ).toBe(true);
+  });
+
+  // ── Fork-local: Seat Sub-agents ─────────────────────────────────────
+  // Claude Code writes no sidecar `name` for an ordinary Agent spawn, so
+  // upstream's name-is-the-sole-classifier rule collapses every sub-agent into
+  // the same anonymous Subtask. With the preference on, the sidecar
+  // `description` names it and it takes a seat.
+
+  it('seats an unnamed background spawn under its description when the preference is on', () => {
+    setSeatSubagentsRef({ current: true });
+    const jsonlPath = seedSidecar();
+    spawnAndLaunch();
+
+    const teammate = [...agents.values()].find((a) => a.leadAgentId === 1);
+    expect(teammate).toBeDefined();
+    expect(teammate!.agentName).toBe('Say hello');
+    expect(teammate!.spawnToolUseId).toBe(SPAWN_TOOL_ID);
+    expect(lead.isTeamLead).toBe(true);
+    // Seated for real: the transient Subtask is superseded and the shadow
+    // watch releases the transcript to the character.
+    expect(
+      messages.some((m) => m.type === 'subagentClear' && m.parentToolId === SPAWN_TOOL_ID),
+    ).toBe(true);
+    expect(watch.isWatching(jsonlPath)).toBe(false);
+  });
+
+  it('leaves an unnamed spawn a Sub-agent when the preference is off', () => {
+    // Upstream default must survive untouched.
+    const jsonlPath = seedSidecar();
+    spawnAndLaunch();
+
+    expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(false);
+    expect(watch.isWatching(jsonlPath)).toBe(true);
+  });
+
+  it('never seats a FOREGROUND unnamed spawn, preference on or not', () => {
+    // Foreground spawns are within-turn work whatever the sidecar says — the
+    // preference must not smuggle them into seats.
+    setSeatSubagentsRef({ current: true });
+    const jsonlPath = seedSidecar();
+    processTranscriptLine(1, agentSpawnRecord(), agents, waitingTimers, permissionTimers);
+    // No async launch result: the tool is a live FOREGROUND spawn.
+    scanForBackgroundAgentFiles(
+      1,
+      agents,
+      { current: 300 },
+      fileWatchers,
+      pollingTimers,
+      waitingTimers,
+      permissionTimers,
+      () => {},
+      undefined,
+    );
+
+    expect(watch.isWatching(jsonlPath)).toBe(true);
+    expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(false);
   });
 
   // ── Named spawn = Teammate ──────────────────────────────────────────

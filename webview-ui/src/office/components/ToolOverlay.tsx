@@ -129,9 +129,11 @@ export function ToolOverlay({
         const isSelected = selectedId === id;
         const isHovered = hoveredId === id;
         const isSub = ch.isSubagent;
+        const showPersistently = alwaysShowOverlay;
 
-        // Only show for hovered or selected agents (unless always-show is on)
-        if (!alwaysShowOverlay && !isSelected && !isHovered) return null;
+        // Por padrão o cartão aparece só em hover. A identidade fica
+        // no personagem; cobrir a sala inteira com cartões destrói a leitura.
+        if (!showPersistently && !isHovered) return null;
 
         // Position above character
         const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
@@ -141,11 +143,11 @@ export function ToolOverlay({
         // A "Done" agent (finished turn: waiting bubble without awaitingInput)
         // shows ONLY its floating green checkmark bubble, never the label panel
         // (the panel would cover the bubble). Render an empty positioned marker
-        // so overlay counts stay stable and hover/select can still bring the
+        // so overlay counts stay stable and hover can still bring the
         // panel back. When always-show is off, the early return above already
         // keeps the panel hidden for idle agents.
         const isDone = ch.bubbleType === 'waiting' && !ch.waitingAwaitingInput;
-        if (isDone && !isSelected && !isHovered) {
+        if (isDone && !showPersistently && !isHovered) {
           return (
             <div
               key={id}
@@ -219,7 +221,7 @@ export function ToolOverlay({
               left: screenX,
               top: screenY - (hasExtraLines ? 34 : 28),
               pointerEvents: isSelected ? 'auto' : 'none',
-              opacity: alwaysShowOverlay && !isSelected && !isHovered ? (isSub ? 0.5 : 0.75) : 1,
+              opacity: showPersistently && !isSelected && !isHovered ? (isSub ? 0.5 : 0.82) : 1,
               zIndex: isSelected ? 42 : 41,
             }}
             data-testid="agent-overlay"

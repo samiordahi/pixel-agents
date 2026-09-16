@@ -183,4 +183,43 @@ describe('AgentRuntime -- restore preserves palette/hueShift', () => {
     expect(agent?.palette).toBeLessThan(6);
     expect(agent?.hueShift).toBe(0);
   });
+
+  it('keeps the newest idle session but does not resurrect older project transcripts', () => {
+    const newerPath = path.join(tmpDir, 'newer.jsonl');
+    fs.writeFileSync(newerPath, '');
+    const old = new Date(Date.now() - 60 * 60 * 1000);
+    const newer = new Date(Date.now() - 30 * 60 * 1000);
+    fs.utimesSync(jsonlPath, old, old);
+    fs.utimesSync(newerPath, newer, newer);
+    const persisted: PersistedAgent[] = [
+      {
+        id: 11,
+        sessionId: 'sess-stale',
+        terminalName: '',
+        isExternal: true,
+        jsonlFile: jsonlPath,
+        projectDir: tmpDir,
+        palette: 2,
+      },
+      {
+        id: 12,
+        sessionId: 'sess-newest-idle',
+        terminalName: '',
+        isExternal: true,
+        jsonlFile: newerPath,
+        projectDir: tmpDir,
+        palette: 3,
+      },
+    ];
+    const adapter = createMockAdapter(persisted);
+    const store = new AgentStateStore();
+    store.setAdapter(adapter);
+    runtime = new AgentRuntime(store, claudeProvider);
+
+    runtime.restoreExternalAgents();
+
+    expect(store.get(11)).toBeUndefined();
+    expect(store.get(12)).toBeDefined();
+    expect(adapter.saved.at(-1)?.map((agent) => agent.id)).toEqual([12]);
+  });
 });

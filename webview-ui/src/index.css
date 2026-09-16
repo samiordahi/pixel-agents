@@ -8,37 +8,51 @@
   src: url('/fonts/FSPixelSansUnicode-Regular.ttf') format('truetype');
 }
 
-:root {
-  /* Core palette */
-  --color-bg: #1e1e2e;
-  --color-bg-dark: #181828;
-  --color-bg-thumb: #2a2a3a;
-  --color-border: #4a4a6a;
-  --color-accent: #6030ff;
-  --color-accent-bright: #746fff;
+/* ── FORK-LOCAL: paleta OrdahiMaps (Tech-Organic) ───────────────────────────
+   Este bloco é a única divergência de marca em relação ao upstream, e fica
+   aqui de propósito: se o upstream mexer nestes valores, o merge conflita
+   exatamente nestas linhas — que é o aviso que se quer. Nenhuma cor é
+   inventada; todas saem de uma rampa de `brand-assets/tokens.css` no
+   repositório Ordahi AIOS, o mesmo chão do Mission Control.
 
-  /* Text */
-  --color-text: rgba(255, 255, 255, 0.9);
-  --color-text-muted: rgba(255, 255, 255, 0.5);
+   Uma decisão que não é óbvia: o acento da marca **é** vermelho, então
+   `--color-danger` não pode ser o mesmo terracota, senão o botão de apagar
+   fica idêntico ao botão primário. Os dois se separam por luminosidade —
+   acento no terracotta-500/400 (claro, chama), perigo no terracotta-600
+   (fundo, pesa) — em vez de por matiz, que traria uma cor de fora da paleta. */
+:root {
+  /* Core palette — preto quente do neutral-900, não o azul do upstream */
+  --color-bg: #15140e;
+  --color-bg-dark: #0f0e0a;
+  --color-bg-thumb: #312e24;
+  --color-border: #494538;
+  --color-accent: #d7340b;
+  --color-accent-bright: #e85a30;
+
+  /* Text — tinta #fafaf2, não branco puro */
+  --color-text: rgba(250, 250, 242, 0.9);
+  --color-text-muted: rgba(250, 250, 242, 0.5);
 
   /* Buttons */
-  --color-btn-bg: rgb(53, 52, 69);
-  --color-btn-hover: rgb(78, 75, 104);
-  --color-active-bg: rgb(44, 43, 109);
+  --color-btn-bg: #1c1a14;
+  --color-btn-hover: #2a2721;
+  --color-active-bg: #4a1103;
 
   /* Semantic */
-  --color-reset-text: #ecc;
-  --color-danger: #d14249;
-  --color-warning: #ff8d14;
+  --color-reset-text: #fcd9d0;
+  --color-danger: #b62a09;
+  --color-warning: #f28c6e;
 
-  /* Status */
-  --color-status-permission: #cca700;
-  --color-status-active: #3794ff;
-  --color-status-success: #89d185;
+  /* Status — as quatro semânticas do AIOS: âmbar espera, teal trabalha, musgo
+     entrega, terracota falha. O azul do upstream era a única cor fria da tela
+     e não existe na marca; o teal ocupa o mesmo papel. */
+  --color-status-permission: #efac44;
+  --color-status-active: #96c8cc;
+  --color-status-success: #8ab468;
   --color-status-error: var(--color-danger);
 
   /* Shadow */
-  --shadow-pixel: 2px 2px 0px #0a0a14;
+  --shadow-pixel: 2px 2px 0px #0a0805;
 
   /* Non-utility values */
   --vignette: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);

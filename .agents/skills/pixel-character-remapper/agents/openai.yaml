@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pixel Character Remapper"
+  short_description: "Remap characters onto proven sprite sheets"
+  default_prompt: "Use $pixel-character-remapper to transfer this character reference onto the supplied Pixel Agents template without changing its frame geometry."

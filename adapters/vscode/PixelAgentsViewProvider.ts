@@ -67,6 +67,7 @@ import {
   GLOBAL_KEY_GHOST_HEADLESS_AGENTS,
   GLOBAL_KEY_HOOKS_INFO_SHOWN,
   GLOBAL_KEY_LAST_SEEN_VERSION,
+  GLOBAL_KEY_SEAT_SUBAGENTS,
   GLOBAL_KEY_SHOW_AREAS,
   GLOBAL_KEY_SOUND_ENABLED,
   GLOBAL_KEY_WATCH_ALL_SESSIONS,
@@ -502,6 +503,12 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         const cfg = readConfig();
         cfg.vscode.areaMappings = mappings;
         writeConfig(cfg);
+      } else if (message.type === 'setSeatSubagents') {
+        const enabled = message.enabled as boolean;
+        this.adapter.setSetting(GLOBAL_KEY_SEAT_SUBAGENTS, enabled);
+        // Takes effect on the next background-spawn scan; spawns already
+        // classified keep their shape until they complete.
+        this.runtime.seatSubagents.current = enabled;
       } else if (message.type === 'setWatchAllSessions') {
         const enabled = message.enabled as boolean;
         this.adapter.setSetting(GLOBAL_KEY_WATCH_ALL_SESSIONS, enabled);
@@ -578,7 +585,9 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           GLOBAL_KEY_GHOST_HEADLESS_AGENTS,
           false,
         );
+        const seatSubagents = this.adapter.getSetting<boolean>(GLOBAL_KEY_SEAT_SUBAGENTS, false);
         this.runtime.watchAllSessions.current = watchAllSessions;
+        this.runtime.seatSubagents.current = seatSubagents;
         // settingsLoaded.hooksEnabled stays a single boolean carrying the
         // CLAUDE provider's preference until the Settings UI grows a
         // per-provider list — its sole webview reader is the hooks tooltip.
@@ -592,6 +601,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           lastSeenVersion,
           extensionVersion,
           watchAllSessions,
+          seatSubagents,
           alwaysShowLabels,
           ghostHeadlessAgents,
           hooksEnabled,

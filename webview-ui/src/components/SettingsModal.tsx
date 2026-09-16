@@ -21,6 +21,10 @@ interface SettingsModalProps {
   externalAssetDirectories: string[];
   watchAllSessions: boolean;
   onToggleWatchAllSessions: () => void;
+  /** Whether unnamed sub-agents are seated as teammates, named from their task
+   *  description, instead of staying transient Subtask characters. */
+  seatSubagents: boolean;
+  onToggleSeatSubagents: () => void;
   /** ACTUAL install state (the hooksStatus message), not the hooksEnabled
    *  preference. The preference defaults to true while first-run consent is
    *  still pending, so binding the checkbox to it renders "on" over an empty
@@ -36,6 +40,8 @@ interface SettingsModalProps {
   onExportLayout: () => void;
   /** Browser-native layout import from a chosen file (standalone only). */
   onImportLayout: (file: File) => void;
+  /** Opens the local sprite-sheet composer. */
+  onOpenCharacterStudio: () => void;
 }
 
 export function SettingsModal({
@@ -50,6 +56,8 @@ export function SettingsModal({
   externalAssetDirectories,
   watchAllSessions,
   onToggleWatchAllSessions,
+  seatSubagents,
+  onToggleSeatSubagents,
   hooksInstalled,
   onToggleHooksEnabled,
   showAreas,
@@ -57,6 +65,7 @@ export function SettingsModal({
   showAreasAvailable,
   onExportLayout,
   onImportLayout,
+  onOpenCharacterStudio,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +108,14 @@ export function SettingsModal({
         }}
       >
         Import Layout
+      </MenuItem>
+      <MenuItem
+        onClick={() => {
+          onOpenCharacterStudio();
+          onClose();
+        }}
+      >
+        Create Character
       </MenuItem>
       {isBrowserRuntime && (
         <input
@@ -184,6 +201,7 @@ export function SettingsModal({
         checked={watchAllSessions}
         onChange={onToggleWatchAllSessions}
       />
+      <Checkbox label="Seat Sub-agents" checked={seatSubagents} onChange={onToggleSeatSubagents} />
       <Checkbox
         label="Instant Detection (Hooks)"
         checked={hooksInstalled}

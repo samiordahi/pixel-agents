@@ -13,6 +13,7 @@ import {
 } from './configPersistence.js';
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT } from './constants.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
+import { paletaFixada } from './paletteAssigner.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
 import { applyConsentChoice } from './providers/hook/consentExecutor.js';
 import { hooksConsentRequest } from './providers/hook/consentGate.js';
@@ -68,6 +69,7 @@ const KEY_LAST_SEEN_VERSION = 'pixel-agents.lastSeenVersion';
 const KEY_ALWAYS_SHOW_LABELS = 'pixel-agents.alwaysShowLabels';
 const KEY_GHOST_HEADLESS_AGENTS = 'pixel-agents.ghostHeadlessAgents';
 const KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
+const KEY_SEAT_SUBAGENTS = 'pixel-agents.seatSubagents';
 const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
 
@@ -134,21 +136,35 @@ export function handleClientMessage(
           const id = Number(idStr);
           const agent = store.get(id);
           if (agent) {
-            if (
-              meta.palette !== undefined &&
-              Number.isInteger(meta.palette) &&
-              meta.palette >= 0 &&
-              meta.palette < paletteCount
-            ) {
-              agent.palette = meta.palette;
-            }
-            if (
-              meta.hueShift !== undefined &&
-              Number.isInteger(meta.hueShift) &&
-              meta.hueShift >= 0 &&
-              meta.hueShift <= HUE_SHIFT_MAX_DEG
-            ) {
-              agent.hueShift = meta.hueShift;
+            // FORK-LOCAL: um agente fixado por regra não aceita o palette que o
+            // cliente lembra. O assento é do cliente — onde a pessoa sentou é
+            // decisão dela; a CARA não é. Sem esta guarda o servidor atribui o
+            // personagem certo no spawn e a aba aberta o desfaz no handshake
+            // seguinte, devolvendo um valor que pode ser de antes da regra
+            // existir. O pino simplesmente não funcionaria, sem erro nenhum.
+            const fixada = paletaFixada(agent);
+            if (fixada !== null) {
+              agent.palette = fixada;
+              agent.hueShift = 0;
+              meta.palette = fixada;
+              meta.hueShift = 0;
+            } else {
+              if (
+                meta.palette !== undefined &&
+                Number.isInteger(meta.palette) &&
+                meta.palette >= 0 &&
+                meta.palette < paletteCount
+              ) {
+                agent.palette = meta.palette;
+              }
+              if (
+                meta.hueShift !== undefined &&
+                Number.isInteger(meta.hueShift) &&
+                meta.hueShift >= 0 &&
+                meta.hueShift <= HUE_SHIFT_MAX_DEG
+              ) {
+                agent.hueShift = meta.hueShift;
+              }
             }
           }
         }
@@ -176,6 +192,15 @@ export function handleClientMessage(
       const enabled = msg.enabled as boolean;
       adapter?.setSetting(KEY_WATCH_ALL_SESSIONS, enabled);
       if (runtime) runtime.watchAllSessions.current = enabled;
+      break;
+    }
+
+    case 'setSeatSubagents': {
+      const enabled = msg.enabled as boolean;
+      adapter?.setSetting(KEY_SEAT_SUBAGENTS, enabled);
+      // Takes effect on the next background-spawn scan; already-classified
+      // spawns keep the shape they were born with until they complete.
+      if (runtime) runtime.seatSubagents.current = enabled;
       break;
     }
 
@@ -409,6 +434,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // provider's preference until the Settings UI grows a per-provider list —
   // its sole webview reader is the hooks tooltip gate.
   const hooksEnabled = getHooksEnabled(claudeProvider.id);
+  const seatSubagents = adapter?.getSetting(KEY_SEAT_SUBAGENTS, false) ?? false;
   const showAreas = adapter?.getSetting(KEY_SHOW_AREAS, false) ?? false;
   send({
     type: 'settingsLoaded',
@@ -416,6 +442,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     lastSeenVersion: adapter?.getSetting(KEY_LAST_SEEN_VERSION, '') ?? '',
     extensionVersion: process.env.PIXEL_AGENTS_VERSION ?? '',
     watchAllSessions,
+    seatSubagents,
     alwaysShowLabels: adapter?.getSetting(KEY_ALWAYS_SHOW_LABELS, false) ?? false,
     ghostHeadlessAgents: adapter?.getSetting(KEY_GHOST_HEADLESS_AGENTS, false) ?? false,
     hooksEnabled,
@@ -471,6 +498,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // from the first tick after a server restart.
   if (runtime) {
     runtime.watchAllSessions.current = watchAllSessions;
+    runtime.seatSubagents.current = seatSubagents;
     runtime.hooksEnabled.current = hooksEnabled;
   }
 
@@ -481,6 +509,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   const agentIds: number[] = [];
   const folderNames: Record<number, string> = {};
   const externalAgents: Record<number, boolean> = {};
+  const agentNames: Record<number, string> = {};
+  const providerIds: Record<number, string> = {};
   const persistedSeats = adapter?.loadSeats() ?? {};
   const agentMeta: Record<number, { palette?: number; hueShift?: number; seatId?: string }> = {};
   for (const [id, agent] of store) {
@@ -490,6 +520,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     }
     if (agent.isExternal) {
       externalAgents[id] = true;
+      if (agent.agentName) agentNames[id] = agent.agentName;
+      if (agent.providerId) providerIds[id] = agent.providerId;
     }
     const persisted = persistedSeats[String(id)];
     agentMeta[id] = {
@@ -504,6 +536,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     agentMeta,
     folderNames,
     externalAgents,
+    agentNames,
+    providerIds,
   });
 
   // 7. Layout last (see step 3): flushes the webview's buffered existingAgents

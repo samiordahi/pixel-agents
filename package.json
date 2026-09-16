@@ -97,6 +97,7 @@
     "build": "npm run compile",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
+    "watch:webview": "cd webview-ui && vite build --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run asyncapi:generate && npm run check-types && npm run lint && node esbuild.js --production && npm run build:webview",
     "asyncapi:generate": "tsx scripts/generate-messages.ts",

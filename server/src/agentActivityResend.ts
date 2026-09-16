@@ -66,12 +66,17 @@ export function resendAgentActivity(
       });
     }
 
-    // 4. Waiting status
+    // 4. Waiting/idle status
     if (agent.isWaiting) {
       send({
         type: 'agentStatus',
         id,
-        status: 'waiting',
+        status: agent.externalStatus === 'idle' ? 'idle' : 'waiting',
+        ...(agent.externalStatus
+          ? {
+              awaitingInput: agent.externalStatus === 'waiting' || agent.externalStatus === 'error',
+            }
+          : {}),
       });
     }
 

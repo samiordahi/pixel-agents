@@ -19,6 +19,7 @@ import {
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import { parseExternalProviderSnapshot, syncExternalProvider } from './externalAgentSync.js';
 import type { AgentState } from './types.js';
 
 /** Options for creating the HTTP + WebSocket server. */
@@ -86,6 +87,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
   registerHealthRoute(app);
   registerHookRoute(app, options);
+  registerExternalProviderRoute(app, options);
   registerWebSocketRoute(app, options);
 
   // ── Listen ──────────────────────────────────────────────────
@@ -95,6 +97,29 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   const port = typeof address === 'object' ? (address?.port ?? 0) : 0;
 
   return { app, port };
+}
+
+// ── External provider snapshots ───────────────────────────────
+
+function registerExternalProviderRoute(app: FastifyInstance, options: HttpServerOptions): void {
+  app.post<{ Params: { providerId: string }; Body: unknown }>(
+    '/api/external-agents/:providerId',
+    {
+      preHandler: bearerAuth(options.token),
+      schema: {
+        params: {
+          type: 'object',
+          properties: { providerId: { type: 'string', pattern: '^[a-z0-9-]{1,40}$' } },
+          required: ['providerId'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const snapshot = parseExternalProviderSnapshot(request.body);
+      if (!snapshot) return reply.code(400).send({ error: 'invalid external provider snapshot' });
+      return reply.send(syncExternalProvider(options.store, request.params.providerId, snapshot));
+    },
+  );
 }
 
 // ── Health ──────────────────────────────────────────────────────
@@ -180,6 +205,8 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
         parentAgentId: agent.leadAgentId,
         teamName: agent.teamName,
         hooksOnly: agent.hooksOnly || undefined,
+        agentName: agent.agentName,
+        providerId: agent.providerId,
         palette: agent.palette,
         hueShift: agent.hueShift,
       });

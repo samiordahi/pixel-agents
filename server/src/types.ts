@@ -34,6 +34,8 @@ export interface AgentState {
   hooksOnly?: boolean;
   /** Provider that created this agent (defaults to 'claude') */
   providerId?: string;
+  /** Last state supplied by an external snapshot. Used to emit transitions once. */
+  externalStatus?: 'active' | 'waiting' | 'idle' | 'error';
   /** Set when SessionEnd(reason=clear) fires; cleared when SessionStart(source=clear) reassigns */
   pendingClear?: boolean;
   /** Hook-generated tool ID for PreToolUse/PostToolUse correlation */
@@ -81,7 +83,7 @@ export interface AgentState {
   teammateSpawnToolIds?: Set<string>;
 
   // -- Avatar customization --
-  /** Preferred character palette (0-5). If undefined, auto-assigned for diversity. */
+  /** Preferred character palette index. If undefined, auto-assigned for diversity. */
   palette?: number;
   /** Hue shift in degrees (0-360). Rotates the base palette colors. */
   hueShift?: number;
@@ -109,7 +111,7 @@ export interface PersistedAgent {
    *  transcripts are re-adopted after a reload; the spawned children
    *  themselves are derived state and never persisted. */
   backgroundAgentToolIds?: string[];
-  /** Preferred character palette (0-5). Persisted so colors stay stable
+  /** Preferred character palette index. Persisted so colors stay stable
    *  across server restarts; assignPaletteIfNeeded is a no-op on restore. */
   palette?: number;
   /** Hue shift in degrees (0-360). Persisted alongside palette. */

@@ -14,7 +14,7 @@ import * as path from 'path';
 
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
-import { DEFAULT_MAX_CONTEXT_TOKENS } from './constants.js';
+import { DEFAULT_MAX_CONTEXT_TOKENS, EXTERNAL_ACTIVE_THRESHOLD_MS } from './constants.js';
 import { DismissalTracker } from './dismissalTracker.js';
 import {
   adoptExternalSessionFromHook,
@@ -26,6 +26,7 @@ import {
   setAgentRemovalCallback,
   setDismissalTracker,
   setHookProvider as setFileWatcherHookProvider,
+  setSeatSubagentsRef,
   setSubagentWatch,
   setTeammateRegisterCallback,
   setTeammateRemovalCallback,
@@ -77,6 +78,12 @@ export class AgentRuntime {
   // Configuration refs (mutable, shared with scanners)
   readonly watchAllSessions = { current: false };
   readonly hooksEnabled = { current: true };
+  /** Integration mode: external provider snapshots own the visible identities,
+   *  so native Claude sessions must not be restored as extra characters. */
+  readonly nativeSessionTracking = { current: true };
+  /** Fork-local: seat unnamed sub-agents as teammates (named from their task
+   *  description). Read by the background-spawn classifier in fileWatcher. */
+  readonly seatSubagents = { current: false };
 
   // Dependencies
   readonly dismissalTracker = new DismissalTracker();
@@ -95,6 +102,7 @@ export class AgentRuntime {
     setFileWatcherHookProvider(provider);
     this.subagentWatch = new SubagentWatch(store);
     setSubagentWatch(this.subagentWatch);
+    setSeatSubagentsRef(this.seatSubagents);
     if (provider.team) {
       setTeamProvider(provider.team);
     }
@@ -458,12 +466,31 @@ export class AgentRuntime {
    * terminal agents via vscode.window.terminals.
    */
   restoreExternalAgents(): void {
+    if (!this.nativeSessionTracking.current) return;
     const adapter = this.store.getAdapter();
     if (!adapter) return;
     const persisted = adapter.loadAgents();
     if (persisted.length === 0) return;
 
     let maxId = 0;
+
+    // A Claude transcript is durable history, so existence alone cannot prove
+    // that its UI session is still open. Keep the newest transcript per project
+    // as the idle-session fallback, plus any concurrently active transcripts.
+    const newestMtimeByProject = new Map<string, number>();
+    for (const p of persisted) {
+      if (!p.isExternal || (p.leadAgentId !== undefined && !p.teamName)) continue;
+      try {
+        const mtimeMs = fs.statSync(p.jsonlFile).mtimeMs;
+        const projectKey = path.resolve(p.projectDir).toLowerCase();
+        newestMtimeByProject.set(
+          projectKey,
+          Math.max(newestMtimeByProject.get(projectKey) ?? 0, mtimeMs),
+        );
+      } catch {
+        // Missing transcripts are discarded by the restore loop below.
+      }
+    }
 
     for (const p of persisted) {
       if (!p.isExternal) continue;
@@ -473,7 +500,11 @@ export class AgentRuntime {
       // (also skips stale entries written by older builds that persisted them).
       if (p.leadAgentId !== undefined && !p.teamName) continue;
       try {
-        if (!fs.existsSync(p.jsonlFile)) continue;
+        const stat = fs.statSync(p.jsonlFile);
+        const projectKey = path.resolve(p.projectDir).toLowerCase();
+        const newestMtime = newestMtimeByProject.get(projectKey) ?? stat.mtimeMs;
+        const recentlyActive = Date.now() - stat.mtimeMs <= EXTERNAL_ACTIVE_THRESHOLD_MS;
+        if (!recentlyActive && stat.mtimeMs < newestMtime) continue;
       } catch {
         continue;
       }

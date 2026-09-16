@@ -90,8 +90,13 @@ export class PixelAgentsServer {
       return candidate;
     }
 
-    // Start our own server
-    const token = crypto.randomUUID();
+    // Start our own server.
+    // Fork-local: PIXEL_AGENTS_TOKEN pins the session token across restarts so
+    // one bookmarked ?token= URL keeps working through a dev loop that restarts
+    // the server constantly. Unset (the default, and every non-dev run) mints a
+    // fresh random one exactly as upstream does. A pinned token is a long-lived
+    // secret on loopback — set it only on your own machine.
+    const token = process.env['PIXEL_AGENTS_TOKEN'] || crypto.randomUUID();
     const store = options?.store;
 
     const { app, port } = await createHttpServer({

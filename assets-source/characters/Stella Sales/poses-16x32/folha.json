@@ -1,0 +1,50 @@
+{
+  "_source": "Approved Stella PixelLab rotations in assets-source/characters/Stella Sales",
+  "_primary_template": "webview-ui/public/assets/characters/char_0.png",
+  "_secondary_exceptions": [
+    "Native char_4 profile arms define opposing walk swings and 90-degree work/read elbows, explicitly selected by the user."
+  ],
+  "_character_corrections": "stella-learned-corrections.json",
+  "_order": [
+    "andar-contato-A",
+    "andar-passada",
+    "andar-contato-B",
+    "digitando-1",
+    "digitando-2",
+    "lendo-1",
+    "lendo-2"
+  ],
+  "_template_exceptions": [
+    "Approved standing hair, face, neck, blouse, jacket, arms, and hands remain byte-for-byte above the leg line.",
+    "Seated frames retain the approved directional head plus the central neckline and green blouse pixels.",
+    "Front seated head anchor preserves Stella's measured 28px total opaque height.",
+    "All colors come from Stella's approved export; reading paper uses its approved white/gray colors."
+  ],
+  "baixo": [
+    "baixo-andar-contato-A.png",
+    "baixo-andar-passada.png",
+    "baixo-andar-contato-B.png",
+    "baixo-digitando-1.png",
+    "baixo-digitando-2.png",
+    "baixo-lendo-1.png",
+    "baixo-lendo-2.png"
+  ],
+  "cima": [
+    "cima-andar-contato-A.png",
+    "cima-andar-passada.png",
+    "cima-andar-contato-B.png",
+    "cima-digitando-1.png",
+    "cima-digitando-2.png",
+    "cima-lendo-1.png",
+    "cima-lendo-2.png"
+  ],
+  "direita": [
+    "direita-andar-contato-A.png",
+    "direita-andar-passada.png",
+    "direita-andar-contato-B.png",
+    "direita-digitando-1.png",
+    "direita-digitando-2.png",
+    "direita-lendo-1.png",
+    "direita-lendo-2.png"
+  ]
+}

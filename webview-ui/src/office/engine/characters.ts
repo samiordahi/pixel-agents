@@ -46,6 +46,47 @@ function directionBetween(
   return Direction.UP;
 }
 
+/**
+ * Find the first step that takes a seated character away from the desk.
+ *
+ * The seat tile is temporarily unblocked by OfficeState so an agent can return
+ * to it.  That also means simply switching TYPE -> IDLE leaves the standing
+ * sprite on top of the chair.  Prefer the tile behind the chair, then either
+ * side, and only use the desk-facing tile as a last resort.
+ */
+function pathOffSeat(
+  ch: Character,
+  seat: Seat,
+  walkableTiles: Array<{ col: number; row: number }>,
+  tileMap: TileTypeVal[][],
+  blockedTiles: Set<string>,
+): Array<{ col: number; row: number }> {
+  const away =
+    seat.facingDir === Direction.UP
+      ? { dc: 0, dr: 1 }
+      : seat.facingDir === Direction.DOWN
+        ? { dc: 0, dr: -1 }
+        : seat.facingDir === Direction.LEFT
+          ? { dc: 1, dr: 0 }
+          : { dc: -1, dr: 0 };
+  const candidates = [
+    away,
+    { dc: away.dr, dr: away.dc },
+    { dc: -away.dr, dr: -away.dc },
+    { dc: -away.dc, dr: -away.dr },
+  ];
+  const walkable = new Set(walkableTiles.map((tile) => `${tile.col},${tile.row}`));
+
+  for (const { dc, dr } of candidates) {
+    const col = ch.tileCol + dc;
+    const row = ch.tileRow + dr;
+    if (!walkable.has(`${col},${row}`)) continue;
+    const path = findPath(ch.tileCol, ch.tileRow, col, row, tileMap, blockedTiles);
+    if (path.length > 0) return path;
+  }
+  return [];
+}
+
 export function createCharacter(
   id: number,
   palette: number,
@@ -112,12 +153,24 @@ export function updateCharacter(
           break;
         }
         ch.seatTimer = 0; // clear sentinel
-        ch.state = CharacterState.IDLE;
         ch.frame = 0;
         ch.frameTimer = 0;
         ch.wanderTimer = randomRange(WANDER_PAUSE_MIN_SEC, WANDER_PAUSE_MAX_SEC);
         ch.wanderCount = 0;
         ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX);
+
+        const seat = ch.seatId ? seats.get(ch.seatId) : null;
+        const exitPath =
+          seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow
+            ? pathOffSeat(ch, seat, walkableTiles, tileMap, blockedTiles)
+            : [];
+        if (exitPath.length > 0) {
+          ch.path = exitPath;
+          ch.moveProgress = 0;
+          ch.state = CharacterState.WALK;
+        } else {
+          ch.state = CharacterState.IDLE;
+        }
       }
       break;
     }

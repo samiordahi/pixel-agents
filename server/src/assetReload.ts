@@ -14,7 +14,8 @@ import {
   mergePetSprites,
 } from './assetLoader.js';
 import type { AssetCache } from './clientMessageHandler.js';
-import { setPaletteCount } from './paletteAssigner.js';
+import { readConfig } from './configPersistence.js';
+import { setCharacterRules, setPaletteCount } from './paletteAssigner.js';
 
 /**
  * Shared asset-loading helpers used by BOTH the VS Code adapter and the
@@ -58,6 +59,12 @@ export async function loadAllCharacters(
   // point -- standalone startup, standalone reload, VS Code startup,
   // VS Code reload -- sees the same count without four scattered calls.
   if (chars) setPaletteCount(chars.characters.length);
+  // FORK-LOCAL: the name → character pins ride the same reload, and in this
+  // order on purpose — the count has to be current before the rules land, or a
+  // rule pointing at char_9 would be clamped against the stale ceiling and
+  // silently resolve to somebody else on the first load after the directory
+  // was added.
+  setCharacterRules(readConfig().characterRules);
   return chars;
 }
 

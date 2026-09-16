@@ -86,6 +86,8 @@ interface ExtensionMessageState {
   extensionVersion: string;
   watchAllSessions: boolean;
   setWatchAllSessions: (v: boolean) => void;
+  seatSubagents: boolean;
+  setSeatSubagents: (v: boolean) => void;
   alwaysShowLabels: boolean;
   ghostHeadlessAgents: boolean;
   setGhostHeadlessAgents: (v: boolean) => void;
@@ -140,6 +142,7 @@ export function useExtensionMessages(
   const [lastSeenVersion, setLastSeenVersion] = useState('');
   const [extensionVersion, setExtensionVersion] = useState('');
   const [watchAllSessions, setWatchAllSessions] = useState(false);
+  const [seatSubagents, setSeatSubagents] = useState(false);
   const [alwaysShowLabels, setAlwaysShowLabels] = useState(false);
   const [ghostHeadlessAgents, setGhostHeadlessAgentsState] = useState(false);
   const [hooksEnabled, setHooksEnabled] = useState(true);
@@ -234,6 +237,8 @@ export function useExtensionMessages(
         for (const p of pendingAgents) {
           os.addAgent(p.id, p.palette, p.hueShift, p.seatId, true, p.folderName);
           if (p.isHeadless) os.setHeadless(p.id, true);
+          const character = os.characters.get(p.id);
+          if (character) character.agentName = p.agentName;
         }
         pendingAgents = [];
         layoutReadyRef.current = true;
@@ -285,6 +290,8 @@ export function useExtensionMessages(
           const hueShift = msg.hueShift as number | undefined;
           os.addAgent(id, palette, hueShift, undefined, undefined, folderName);
           noteFolderName(folderName);
+          const ch = os.characters.get(id);
+          if (ch) ch.agentName = msg.agentName as string | undefined;
           if (isHeadlessAgent(msg.isExternal as boolean | undefined)) {
             os.setHeadless(id, true);
           }
@@ -322,6 +329,7 @@ export function useExtensionMessages(
         const meta = (msg.agentMeta || {}) as Record<number, ExistingAgentMeta>;
         const folderNames = (msg.folderNames || {}) as Record<number, string>;
         const externalAgents = (msg.externalAgents || {}) as Record<number, boolean>;
+        const agentNames = (msg.agentNames || {}) as Record<number, string>;
         const headlessAgents: Record<number, boolean> = {};
         for (const id of incoming) {
           noteFolderName(folderNames[id]);
@@ -340,6 +348,7 @@ export function useExtensionMessages(
             layoutReadyRef.current,
             pendingAgents,
             headlessAgents,
+            agentNames,
           )
         ) {
           saveAgentSeats(os);
@@ -487,6 +496,8 @@ export function useExtensionMessages(
         if (status === 'waiting') {
           os.showWaitingBubble(id, msg.awaitingInput === true);
           playDoneSound();
+        } else if (status === 'idle') {
+          os.clearWaitingBubble(id);
         }
       } else if (msg.type === 'agentToolPermission') {
         const id = msg.id as number;
@@ -650,6 +661,9 @@ export function useExtensionMessages(
         if (typeof msg.watchAllSessions === 'boolean') {
           setWatchAllSessions(msg.watchAllSessions as boolean);
         }
+        if (typeof msg.seatSubagents === 'boolean') {
+          setSeatSubagents(msg.seatSubagents as boolean);
+        }
         if (typeof msg.alwaysShowLabels === 'boolean') {
           setAlwaysShowLabels(msg.alwaysShowLabels as boolean);
         }
@@ -775,6 +789,8 @@ export function useExtensionMessages(
     extensionVersion,
     watchAllSessions,
     setWatchAllSessions,
+    seatSubagents,
+    setSeatSubagents,
     alwaysShowLabels,
     ghostHeadlessAgents,
     setGhostHeadlessAgents: applyGhostHeadlessAgents,
