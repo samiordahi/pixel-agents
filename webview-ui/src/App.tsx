@@ -28,7 +28,7 @@ import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
 import { getPetCount } from './office/sprites/petSpriteData.js';
 import { EditTool, type OfficeLayout } from './office/types.js';
-import { isBrowserRuntime, isE2E } from './runtime.js';
+import { isAiosHost, isBrowserRuntime, isE2E } from './runtime.js';
 import { installTestHooks } from './testHooks.js';
 import { transport } from './transport/index.js';
 
@@ -370,11 +370,13 @@ function App() {
         <>
           <ZoomControls zoom={editor.zoom} onZoomChange={editor.handleZoomChange} />
 
-          {/* Vignette overlay */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'var(--vignette)' }}
-          />
+          {/* Vignette overlay — the AIOS panel paints its own (see isAiosHost) */}
+          {!isAiosHost && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'var(--vignette)' }}
+            />
+          )}
 
           {editor.isEditMode && editor.isDirty && (
             <EditActionBar editor={editor} editorState={editorState} />

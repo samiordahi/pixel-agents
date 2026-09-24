@@ -25,3 +25,13 @@ export const isBrowserRuntime = runtime === 'browser';
 export const isE2E: boolean =
   typeof window !== 'undefined' &&
   (window as unknown as { __PIXEL_AGENTS_E2E?: boolean }).__PIXEL_AGENTS_E2E === true;
+
+/**
+ * True when the AIOS panel embeds the office (it adds `?host=aios` to the
+ * iframe src). The panel paints the backdrop and vignette itself, across the
+ * area behind its chat box, so the office must render on a transparent page:
+ * an opaque background here ends in a hard edge above that box.
+ */
+export const isAiosHost: boolean =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('host') === 'aios';
