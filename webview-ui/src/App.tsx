@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { listenToHost } from './aiosHost.js';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
@@ -242,17 +243,13 @@ function App() {
     const meta = os.subagentMeta.get(agentId);
     const focusId = meta ? meta.parentAgentId : agentId;
     transport.send({ type: 'focusAgent', id: focusId });
-    // Embedded in a host page (the AIOS panel), there is no terminal to focus:
-    // tell the host which character was clicked so it can open its own detail
-    // view. Only the id and display name cross the frame boundary.
-    if (window.parent !== window) {
-      const name = os.characters.get(focusId)?.agentName ?? null;
-      window.parent.postMessage(
-        { source: 'pixel-agents', type: 'agentClick', id: focusId, name },
-        '*',
-      );
-    }
+    // Embedded in the AIOS panel there is no terminal to focus; the selection
+    // itself is announced to the panel by OfficeCanvas (see aiosHost.ts).
   }, []);
+
+  // FORK-LOCAL: the panel closes its drawer → the office lets go of the
+  // selection and the camera follow; Escape here closes the drawer there.
+  useEffect(() => (isAiosHost ? listenToHost(getOfficeState()) : undefined), []);
 
   const officeState = getOfficeState();
 
@@ -470,30 +467,36 @@ function App() {
           message), NOT the hooksEnabled preference: hooksEnabled defaults true
           while first-run consent is still pending, and announcing "Instant
           Detection Active" before anything is installed would be a lie. */}
-      {hooksEnabled && claudeHooksInstalled && !hooksInfoShown && !hooksTooltipDismissed && (
-        <Tooltip
-          title="Instant Detection Active"
-          position="top-right"
-          onDismiss={() => {
-            setHooksTooltipDismissed(true);
-            transport.send({ type: 'setHooksInfoShown' });
-          }}
-        >
-          <span className="text-sm text-text leading-none">
-            Your agents now respond in real-time.{' '}
-            <span
-              className="text-accent cursor-pointer underline"
-              onClick={() => {
-                setIsHooksInfoOpen(true);
-                setHooksTooltipDismissed(true);
-                transport.send({ type: 'setHooksInfoShown' });
-              }}
-            >
-              View more
+      {/* FORK-LOCAL: embedded in the AIOS panel the office runs --external-only;
+          Claude sessions reach it through the panel, so the hooks promise nothing here. */}
+      {!isAiosHost &&
+        hooksEnabled &&
+        claudeHooksInstalled &&
+        !hooksInfoShown &&
+        !hooksTooltipDismissed && (
+          <Tooltip
+            title="Instant Detection Active"
+            position="top-right"
+            onDismiss={() => {
+              setHooksTooltipDismissed(true);
+              transport.send({ type: 'setHooksInfoShown' });
+            }}
+          >
+            <span className="text-sm text-text leading-none">
+              Your agents now respond in real-time.{' '}
+              <span
+                className="text-accent cursor-pointer underline"
+                onClick={() => {
+                  setIsHooksInfoOpen(true);
+                  setHooksTooltipDismissed(true);
+                  transport.send({ type: 'setHooksInfoShown' });
+                }}
+              >
+                View more
+              </span>
             </span>
-          </span>
-        </Tooltip>
-      )}
+          </Tooltip>
+        )}
 
       {/* Hooks info modal */}
       <Modal

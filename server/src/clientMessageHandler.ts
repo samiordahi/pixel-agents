@@ -483,7 +483,11 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
           },
           provider,
         );
-        if (request) send({ ...request }); // spread: WsSend takes an index-signature shape
+        // FORK-LOCAL: under --external-only the hooks feed nothing (native
+        // tracking is off), so asking to install them — the whole intro tour —
+        // would be a promise the office can't keep.
+        const nativeTracking = runtime?.nativeSessionTracking?.current !== false;
+        if (request && nativeTracking) send({ ...request }); // spread: WsSend takes an index-signature shape
       });
   }
 

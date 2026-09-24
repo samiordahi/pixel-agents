@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import {
+  fittedZoom,
+  hostInsetRight,
+  recenterDone,
+  recenterPending,
+  requestRecenter,
+  tellHostSelection,
+} from '../../aiosHost.js';
+import {
   CAMERA_FOLLOW_LERP,
   CAMERA_FOLLOW_SNAP_THRESHOLD,
   PAN_MARGIN_FRACTION,
@@ -114,6 +122,25 @@ export function OfficeCanvas({
     canvas.style.height = `${rect.height}px`;
     // No ctx.scale(dpr) — we render directly in device pixels
   }, []);
+
+  // FORK-LOCAL: embedded in the AIOS panel, open the office fitted to the
+  // stage once. Later zoom is the user's; resizes don't refit.
+  const fittedRef = useRef(false);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!isAiosHost || fittedRef.current || !canvas) return;
+    resizeCanvas();
+    if (!canvas.width || !canvas.height) return;
+    fittedRef.current = true;
+    const fit = fittedZoom(
+      officeState.getLayout(),
+      canvas.width,
+      canvas.height,
+      ZOOM_MIN,
+      ZOOM_MAX,
+    );
+    if (fit > zoom) onZoomChange(fit);
+  }, [officeState, resizeCanvas, zoom, onZoomChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -244,13 +271,17 @@ export function OfficeCanvas({
             ? officeState.characters.get(officeState.cameraFollowId)
             : undefined;
         const cameraFocus = followCh ?? officeState.greeterCameraTarget;
-        if (cameraFocus) {
-          const { x: targetX, y: targetY } = panToCenter(
-            contentBox(officeState.getLayout()),
-            zoom,
-            cameraFocus.x,
-            cameraFocus.y,
-          );
+        // FORK-LOCAL: after a deselect in the AIOS panel, glide home (pan 0).
+        const home = !cameraFocus && isAiosHost && recenterPending();
+        if (cameraFocus || home) {
+          const { x: focusX, y: targetY } = cameraFocus
+            ? panToCenter(contentBox(officeState.getLayout()), zoom, cameraFocus.x, cameraFocus.y)
+            : { x: 0, y: 0 };
+          // FORK-LOCAL: the panel's drawer covers the right edge; center in
+          // what stays visible (canvas px) instead of resizing the frame.
+          const targetX = cameraFocus
+            ? focusX - (hostInsetRight() * window.devicePixelRatio) / 2
+            : focusX;
           const dx = targetX - panRef.current.x;
           const dy = targetY - panRef.current.y;
           if (
@@ -258,6 +289,7 @@ export function OfficeCanvas({
             Math.abs(dy) < CAMERA_FOLLOW_SNAP_THRESHOLD
           ) {
             panRef.current = { x: targetX, y: targetY };
+            if (home) recenterDone();
           } else {
             panRef.current = {
               x: panRef.current.x + dx * CAMERA_FOLLOW_LERP,
@@ -548,6 +580,7 @@ export function OfficeCanvas({
         // Break camera follow + greeter centering on manual pan
         officeState.cameraFollowId = null;
         officeState.cancelGreeterCamera();
+        recenterDone();
         isPanningRef.current = true;
         panStartRef.current = {
           mouseX: e.clientX,
@@ -721,7 +754,7 @@ export function OfficeCanvas({
     [editorState, isEditMode, officeState, onDragMove, onEditorSelectionChange],
   );
 
-  const handleClick = useCallback(
+  const handleClickInner = useCallback(
     (e: React.MouseEvent) => {
       if (isEditMode) return; // handled by mouseDown/mouseUp
       const pos = screenToWorld(e.clientX, e.clientY);
@@ -795,6 +828,20 @@ export function OfficeCanvas({
     [officeState, onClick, screenToWorld, screenToTile, isEditMode],
   );
 
+  // FORK-LOCAL: the AIOS panel mirrors the selection in its drawer, so every
+  // path above that changes it (select, toggle off, empty floor, seat) is told.
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const before = officeState.selectedAgentId;
+      handleClickInner(e);
+      if (isAiosHost && officeState.selectedAgentId !== before) {
+        if (officeState.selectedAgentId === null) requestRecenter();
+        tellHostSelection(officeState);
+      }
+    },
+    [officeState, handleClickInner],
+  );
+
   const handleMouseLeave = useCallback(() => {
     isPanningRef.current = false;
     isEraseDraggingRef.current = false;
@@ -853,6 +900,7 @@ export function OfficeCanvas({
         const dpr = window.devicePixelRatio || 1;
         officeState.cameraFollowId = null;
         officeState.cancelGreeterCamera();
+        recenterDone();
         panRef.current = clampPan(
           panRef.current.x - e.deltaX * dpr,
           panRef.current.y - e.deltaY * dpr,
