@@ -242,6 +242,16 @@ function App() {
     const meta = os.subagentMeta.get(agentId);
     const focusId = meta ? meta.parentAgentId : agentId;
     transport.send({ type: 'focusAgent', id: focusId });
+    // Embedded in a host page (the AIOS panel), there is no terminal to focus:
+    // tell the host which character was clicked so it can open its own detail
+    // view. Only the id and display name cross the frame boundary.
+    if (window.parent !== window) {
+      const name = os.characters.get(focusId)?.agentName ?? null;
+      window.parent.postMessage(
+        { source: 'pixel-agents', type: 'agentClick', id: focusId, name },
+        '*',
+      );
+    }
   }, []);
 
   const officeState = getOfficeState();
