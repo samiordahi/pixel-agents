@@ -157,8 +157,10 @@ export class OfficeState {
     }
 
     // First pass: try to keep characters at their existing seats
+    // (FORK-LOCAL: only when that seat is still a workstation)
+    const electronicsNow = this.buildElectronicsTileSet();
     for (const ch of this.characters.values()) {
-      if (ch.seatId && this.seats.has(ch.seatId)) {
+      if (ch.seatId && this.seats.has(ch.seatId) && this.isWorkstation(ch.seatId, electronicsNow)) {
         const seat = this.seats.get(ch.seatId)!;
         if (!seat.assigned) {
           seat.assigned = true;
@@ -321,6 +323,22 @@ export class OfficeState {
     return false;
   }
 
+  /** FORK-LOCAL: a seat an agent may work from — faces electronics. */
+  isWorkstation(uid: string, electronicsTiles = this.buildElectronicsTileSet()): boolean {
+    const seat = this.seats.get(uid);
+    return !!seat && this.isSeatFacingElectronics(seat, electronicsTiles);
+  }
+
+  /** FORK-LOCAL: the seats map narrowed to workstations, for the seat helpers. */
+  private workstationSeats(): Map<string, Seat> {
+    const electronics = this.buildElectronicsTileSet();
+    const out = new Map<string, Seat>();
+    for (const [uid, seat] of this.seats) {
+      if (this.isSeatFacingElectronics(seat, electronics)) out.set(uid, seat);
+    }
+    return out;
+  }
+
   /**
    * Random-pick a seat from a candidate list, biased toward seats that face an
    * electronics tile. Returns null when the candidate list is empty.
@@ -338,8 +356,12 @@ export class OfficeState {
         otherSeats.push(uid);
       }
     }
+    // FORK-LOCAL: working happens at a workstation — a chair facing a PC.
+    // Upstream falls back to any chair (sofa, armchair), where a working agent
+    // "types" into the air. No workstation free → no seat: the agent walks the
+    // room instead (see characters.ts) until one frees up.
+    void otherSeats;
     if (pcSeats.length > 0) return pcSeats[Math.floor(Math.random() * pcSeats.length)];
-    if (otherSeats.length > 0) return otherSeats[Math.floor(Math.random() * otherSeats.length)];
     return null;
   }
 
@@ -451,14 +473,14 @@ export class OfficeState {
     const anchor = nearAgentId !== undefined ? this.characters.get(nearAgentId) : undefined;
     const anchorAt = anchorTile(anchor, this.seats);
     let seatId: string | null = null;
-    if (preferredSeatId && this.seats.has(preferredSeatId)) {
+    if (preferredSeatId && this.seats.has(preferredSeatId) && this.isWorkstation(preferredSeatId)) {
       const seat = this.seats.get(preferredSeatId)!;
       if (!seat.assigned) {
         seatId = preferredSeatId;
       }
     }
     if (!seatId && anchorAt) {
-      seatId = closestFreeSeat(this.seats, anchorAt.col, anchorAt.row);
+      seatId = closestFreeSeat(this.workstationSeats(), anchorAt.col, anchorAt.row);
     }
     if (!seatId) {
       seatId = this.findFreeSeat(folderName);
@@ -624,7 +646,7 @@ export class OfficeState {
     if (!teammate || !lead) return;
     const anchorAt = anchorTile(lead, this.seats);
     if (!anchorAt) return;
-    const target = closestFreeSeat(this.seats, anchorAt.col, anchorAt.row);
+    const target = closestFreeSeat(this.workstationSeats(), anchorAt.col, anchorAt.row);
     if (!target || target === teammate.seatId) return;
     const targetSeat = this.seats.get(target)!;
     const targetDist =

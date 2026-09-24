@@ -180,14 +180,9 @@ export function updateCharacter(
       ch.frame = 0;
       if (ch.seatTimer < 0) ch.seatTimer = 0; // clear turn-end sentinel
       // If became active, pathfind to seat
-      if (ch.isActive) {
-        if (!ch.seatId) {
-          // No seat assigned — type in place
-          ch.state = CharacterState.TYPE;
-          ch.frame = 0;
-          ch.frameTimer = 0;
-          break;
-        }
+      // FORK-LOCAL: an active agent with no workstation free does not "type in
+      // place" (seated pose in mid-floor); it keeps wandering until a seat frees.
+      if (ch.isActive && ch.seatId) {
         const seat = seats.get(ch.seatId);
         if (seat) {
           const path = findPath(
@@ -205,7 +200,13 @@ export function updateCharacter(
             ch.frame = 0;
             ch.frameTimer = 0;
           } else {
-            // Already at seat or no path — sit down
+            // Already at seat or no path — sit down. FORK-LOCAL: on the seat
+            // itself; typing where it stands draws it seated in mid-air.
+            const center = tileCenter(seat.seatCol, seat.seatRow);
+            ch.tileCol = seat.seatCol;
+            ch.tileRow = seat.seatRow;
+            ch.x = center.x;
+            ch.y = center.y;
             ch.state = CharacterState.TYPE;
             ch.dir = seat.facingDir;
             ch.frame = 0;
@@ -278,8 +279,9 @@ export function updateCharacter(
 
         if (ch.isActive) {
           if (!ch.seatId) {
-            // No seat — type in place
-            ch.state = CharacterState.TYPE;
+            // FORK-LOCAL: no workstation — stand and keep wandering (see IDLE).
+            ch.state = CharacterState.IDLE;
+            ch.wanderTimer = randomRange(WANDER_PAUSE_MIN_SEC, WANDER_PAUSE_MAX_SEC);
           } else {
             const seat = seats.get(ch.seatId);
             if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {

@@ -194,3 +194,14 @@ Ao terminar o trabalho, o personagem precisa caminhar um tile para fora do
 assento — de preferência para trás da cadeira — antes de assumir a pose parada.
 Trocar diretamente de sentado para idle no tile do assento faz o sprite parecer
 em pé sobre a cadeira e não deve ser reintroduzido.
+
+Trabalhar é sempre numa **estação**: cadeira de frente para eletrônico (PC,
+monitor). Sofá e poltrona continuam sendo assentos do layout, mas nenhum agente
+recebe um deles para trabalhar — nem no spawn, nem restaurado da memória, nem ao
+refazer o layout (`OfficeState.isWorkstation`). Sem estação livre o agente
+anda pela sala; "digitar no lugar" desenhava a pose sentada no meio do piso.
+Testes em `webview-ui/test/workstations.test.ts`.
+
+`char_7.png` (Stella Sales) sai de `scripts/character-assets/build_stella_positions.py`
+a partir das rotações aprovadas; rodar de novo é determinístico (os 21 quadros
+saem idênticos). Com ele, `CHAR_COUNT` e os dois `PALETTE_COUNT` são 8.
