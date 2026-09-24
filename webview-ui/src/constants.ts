@@ -206,7 +206,7 @@ export const DISMISS_BUBBLE_FAST_FADE_SEC = 0.3;
 export const INACTIVE_SEAT_TIMER_MIN_SEC = 3.0;
 export const INACTIVE_SEAT_TIMER_RANGE_SEC = 2.0;
 /** Default/fallback count. Actual count comes from the dynamically discovered sheets. */
-export const PALETTE_COUNT = 7;
+export const PALETTE_COUNT = 8;
 // ── Character Studio ─────────────────────────────────────────
 export const CHARACTER_STUDIO_SKIN_COLORS = [
   '#F2C7A5',

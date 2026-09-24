@@ -70,15 +70,15 @@ describe('paletteAssigner', () => {
     });
 
     it('picks a least-used palette (one of the palettes at the minimum count)', () => {
-      // Seed counts: 0->3, 1->2, 2..6->1. minCount=1,
-      // available = [2, 3, 4, 5, 6].
-      const palettes = [0, 0, 0, 1, 1, 2, 3, 4, 5, 6];
+      // Seed counts: 0->3, 1->2, 2..7->1. minCount=1,
+      // available = [2, 3, 4, 5, 6, 7].
+      const palettes = [0, 0, 0, 1, 1, 2, 3, 4, 5, 6, 7];
       for (let i = 0; i < palettes.length; i++) {
         store.set(100 + i, createTestAgent({ id: 100 + i, palette: palettes[i], hueShift: 0 }));
       }
       const agent = createTestAgent({ id: 1 });
       assignPaletteIfNeeded(agent, store);
-      expect([2, 3, 4, 5, 6]).toContain(agent.palette);
+      expect([2, 3, 4, 5, 6, 7]).toContain(agent.palette);
       // minCount > 0 → hue shift in [45, 315].
       expect(agent.hueShift).toBeGreaterThanOrEqual(45);
       expect(agent.hueShift).toBeLessThanOrEqual(HUE_SHIFT_MAX_DEG);

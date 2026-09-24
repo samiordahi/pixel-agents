@@ -30,15 +30,15 @@ describe('loadCharacterSprites', () => {
     roots.push(root);
     const dir = join(root, 'assets', 'characters');
     mkdirSync(dir, { recursive: true });
-    for (let index = 0; index < 7; index++) {
-      writeFileSync(join(dir, `char_${index}.png`), sheet(index === 6 ? 0 : 255));
+    for (let index = 0; index < 8; index++) {
+      writeFileSync(join(dir, `char_${index}.png`), sheet(index === 7 ? 0 : 255));
     }
 
     const loaded = await loadCharacterSprites(root);
 
-    expect(loaded?.characters).toHaveLength(7);
+    expect(loaded?.characters).toHaveLength(8);
     expect(loaded?.characters[0].down[0][0][0]).not.toBe('');
-    expect(loaded?.characters[6].down[0][0][0]).toBe('');
+    expect(loaded?.characters[7].down[0][0][0]).toBe('');
   });
 
   it('rejects a bundled sequence with a missing index', async () => {
