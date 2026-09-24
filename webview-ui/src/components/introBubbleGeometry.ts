@@ -20,10 +20,10 @@ import {
   INTRO_TAIL_STEPS,
   INTRO_TAIL_TARGET_RISE_WORLD,
 } from '../constants.js';
-import { overlayProjection } from '../office/projection.js';
+import { type LayoutExtent, overlayProjection } from '../office/projection.js';
 
 export interface IntroBubbleFrame {
-  layout: { cols: number; rows: number };
+  layout: LayoutExtent;
   containerRect: { width: number; height: number };
   zoom: number;
   pan: { x: number; y: number };

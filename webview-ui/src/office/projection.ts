@@ -14,25 +14,74 @@
  * graph that imports it.
  */
 
-import { TILE_SIZE } from './types.js';
+import { TILE_SIZE, TileType } from './types.js';
 
-/** Device-pixel offset of the map's top-left corner inside the canvas.
- *  This is the renderer's own frame of reference — overlays go through
- *  {@link overlayProjection} instead of calling this directly. */
+/** The part of the grid that holds something, in tiles. */
+export interface MapBox {
+  col: number;
+  row: number;
+  cols: number;
+  rows: number;
+}
+
+/** Bounds of the non-void tiles and of every furniture anchor (wall items
+ *  anchor one row above the wall). The editor grows the grid in whole rows and
+ *  columns, so a layout can carry empty bands; centering the full grid would
+ *  push the office off-center by half of them. Falls back to the full grid. */
+export interface LayoutExtent {
+  cols: number;
+  rows: number;
+  tiles?: readonly number[];
+  furniture?: ReadonlyArray<{ col: number; row: number }>;
+}
+
+export function contentBox(layout: LayoutExtent): MapBox {
+  const { cols, rows, tiles, furniture } = layout;
+  let minC = Infinity;
+  let minR = Infinity;
+  let maxC = -Infinity;
+  let maxR = -Infinity;
+  const take = (c: number, r: number) => {
+    if (c < minC) minC = c;
+    if (c > maxC) maxC = c;
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+  };
+  if (tiles) {
+    for (let i = 0; i < tiles.length; i++) {
+      if (tiles[i] !== TileType.VOID) take(i % cols, Math.floor(i / cols));
+    }
+  }
+  for (const f of furniture ?? []) take(f.col, f.row);
+  if (minC === Infinity) return { col: 0, row: 0, cols, rows };
+  return { col: minC, row: minR, cols: maxC - minC + 1, rows: maxR - minR + 1 };
+}
+
+/** Device-pixel offset of the map's top-left corner inside the canvas, with
+ *  the content box centered. This is the renderer's own frame of reference —
+ *  overlays go through {@link overlayProjection} instead of calling this
+ *  directly. */
 export function mapOffset(
   canvasWidth: number,
   canvasHeight: number,
-  cols: number,
-  rows: number,
+  box: MapBox,
   zoom: number,
   panX: number,
   panY: number,
 ): { offsetX: number; offsetY: number } {
-  const mapW = cols * TILE_SIZE * zoom;
-  const mapH = rows * TILE_SIZE * zoom;
+  const tile = TILE_SIZE * zoom;
   return {
-    offsetX: Math.floor((canvasWidth - mapW) / 2) + Math.round(panX),
-    offsetY: Math.floor((canvasHeight - mapH) / 2) + Math.round(panY),
+    offsetX: Math.floor((canvasWidth - box.cols * tile) / 2 - box.col * tile) + Math.round(panX),
+    offsetY: Math.floor((canvasHeight - box.rows * tile) / 2 - box.row * tile) + Math.round(panY),
+  };
+}
+
+/** Pan that puts a world point at the center of the canvas. */
+export function panToCenter(box: MapBox, zoom: number, worldX: number, worldY: number) {
+  const tile = TILE_SIZE * zoom;
+  return {
+    x: (box.col + box.cols / 2) * tile - worldX * zoom,
+    y: (box.row + box.rows / 2) * tile - worldY * zoom,
   };
 }
 
@@ -50,7 +99,7 @@ export interface OverlayProjection {
 }
 
 export function overlayProjection(
-  layout: { cols: number; rows: number },
+  layout: LayoutExtent,
   containerRect: { width: number; height: number },
   zoom: number,
   pan: { x: number; y: number },
@@ -58,15 +107,7 @@ export function overlayProjection(
 ): OverlayProjection {
   const canvasW = Math.round(containerRect.width * dpr);
   const canvasH = Math.round(containerRect.height * dpr);
-  const { offsetX, offsetY } = mapOffset(
-    canvasW,
-    canvasH,
-    layout.cols,
-    layout.rows,
-    zoom,
-    pan.x,
-    pan.y,
-  );
+  const { offsetX, offsetY } = mapOffset(canvasW, canvasH, contentBox(layout), zoom, pan.x, pan.y);
   return {
     toScreenX: (worldX) => (offsetX + worldX * zoom) / dpr,
     toScreenY: (worldY) => (offsetY + worldY * zoom) / dpr,

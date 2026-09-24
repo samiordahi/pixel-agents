@@ -45,7 +45,7 @@ import {
   VOID_TILE_OUTLINE_COLOR,
 } from '../../constants.js';
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles.js';
-import { mapOffset } from '../projection.js';
+import { type MapBox, mapOffset } from '../projection.js';
 import {
   getCarpetJunctionSprite,
   getCarpetPaletteKey,
@@ -903,6 +903,7 @@ export function renderFrame(
   showAreas?: boolean,
   activeAreaLabel?: string | null,
   pets?: Pet[],
+  box?: MapBox,
 ): { offsetX: number; offsetY: number } {
   // Clear
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -913,7 +914,14 @@ export function renderFrame(
 
   // Center map in viewport + pan offset (integer device pixels). Shared with
   // the DOM overlays so a label lands exactly on the sprite it belongs to.
-  const { offsetX, offsetY } = mapOffset(canvasWidth, canvasHeight, cols, rows, zoom, panX, panY);
+  const { offsetX, offsetY } = mapOffset(
+    canvasWidth,
+    canvasHeight,
+    box ?? { col: 0, row: 0, cols, rows },
+    zoom,
+    panX,
+    panY,
+  );
 
   // Draw tiles (floor + wall base color)
   renderTileGrid(ctx, tileMap, offsetX, offsetY, zoom, tileColors, layoutCols);

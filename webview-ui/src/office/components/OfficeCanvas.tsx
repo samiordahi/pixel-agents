@@ -24,6 +24,7 @@ import type {
 } from '../engine/renderer.js';
 import { renderFrame } from '../engine/renderer.js';
 import { getCatalogEntry, isRotatable } from '../layout/furnitureCatalog.js';
+import { contentBox, panToCenter } from '../projection.js';
 import { EditTool, TILE_SIZE } from '../types.js';
 import { computeNormalModeCursor } from './officeCanvasCursor.js';
 
@@ -85,9 +86,9 @@ export function OfficeCanvas({
     (px: number, py: number): { x: number; y: number } => {
       const canvas = canvasRef.current;
       if (!canvas) return { x: px, y: py };
-      const layout = officeState.getLayout();
-      const mapW = layout.cols * TILE_SIZE * zoom;
-      const mapH = layout.rows * TILE_SIZE * zoom;
+      const box = contentBox(officeState.getLayout());
+      const mapW = box.cols * TILE_SIZE * zoom;
+      const mapH = box.rows * TILE_SIZE * zoom;
       const marginX = canvas.width * PAN_MARGIN_FRACTION;
       const marginY = canvas.height * PAN_MARGIN_FRACTION;
       const maxPanX = mapW / 2 + canvas.width / 2 - marginX;
@@ -244,11 +245,12 @@ export function OfficeCanvas({
             : undefined;
         const cameraFocus = followCh ?? officeState.greeterCameraTarget;
         if (cameraFocus) {
-          const layout = officeState.getLayout();
-          const mapW = layout.cols * TILE_SIZE * zoom;
-          const mapH = layout.rows * TILE_SIZE * zoom;
-          const targetX = mapW / 2 - cameraFocus.x * zoom;
-          const targetY = mapH / 2 - cameraFocus.y * zoom;
+          const { x: targetX, y: targetY } = panToCenter(
+            contentBox(officeState.getLayout()),
+            zoom,
+            cameraFocus.x,
+            cameraFocus.y,
+          );
           const dx = targetX - panRef.current.x;
           const dy = targetY - panRef.current.y;
           if (
@@ -295,6 +297,7 @@ export function OfficeCanvas({
           showAreas,
           activeAreaLabel,
           officeState.pets,
+          contentBox(layout),
         );
         offsetRef.current = { x: offsetX, y: offsetY };
 
