@@ -424,11 +424,14 @@ describe('dist/cli.js entry-point guard', () => {
       }
 
       const settingsPath = path.join(tmpHome, '.claude', 'settings.json');
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as Record<
-        string,
-        unknown
-      >;
-      expect(JSON.stringify(settings)).toContain(installedHook);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as {
+        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+      };
+      // Compare parsed commands: re-serializing escapes Windows backslashes.
+      const commands = Object.values(settings.hooks)
+        .flat()
+        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+      expect(commands.join('\n')).toContain(installedHook);
     } finally {
       await stopChild(child);
       fs.rmSync(tmpHome, { recursive: true, force: true });

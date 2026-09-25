@@ -10,8 +10,10 @@ let tmpBase: string;
 let tmpHome: string;
 let workspaceDir: string;
 
+/** Quote like the installer does: JSON.stringify would double every Windows
+ *  backslash, and the runner would no longer recognize our hook path. */
 function makeNodeCommand(scriptPath: string): string {
-  return `${JSON.stringify(process.execPath)} ${JSON.stringify(scriptPath)}`;
+  return `"${process.execPath}" "${scriptPath}"`;
 }
 
 function writeHookScript(scriptPath: string, outputPath: string): void {
@@ -54,6 +56,7 @@ function runMockClaude(
       env: {
         ...process.env,
         HOME: tmpHome,
+        USERPROFILE: tmpHome,
       },
       stdio: ['ignore', 'ignore', 'pipe'],
     });
